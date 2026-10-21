@@ -15,7 +15,9 @@ const authStore = useAuthStore()
 const uiStore = useUiStore()
 const menuOpen = ref(false)
 
-const initial = computed(() => authStore.user?.nombre?.charAt(0).toUpperCase() ?? 'U')
+const initial = computed(
+  () => authStore.user?.nombre?.charAt(0).toUpperCase() ?? 'U',
+)
 
 const roleLabel = computed(() => {
   const rol = authStore.user?.rol
@@ -36,12 +38,13 @@ async function handleLogout() {
 
 <template>
   <header
-    class="sticky top-0 z-20 flex h-16 min-w-0 items-center justify-between gap-2 border-b border-[#ECECEC] bg-white px-3 sm:h-20 sm:px-5 lg:px-6"
+    class="sticky top-0 z-20 flex h-16 w-full min-w-0 items-center justify-between gap-2 border-b border-[#ECECEC] bg-white px-3 sm:h-20 sm:px-5 lg:px-6"
   >
-    <div class="flex min-w-0 items-center gap-2 sm:gap-3">
+    <!-- Menú y título -->
+    <div class="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
       <button
         type="button"
-        class="rounded-xl p-2 text-gray-500 hover:bg-gray-100 xl:hidden"
+        class="shrink-0 rounded-xl p-2 text-gray-500 transition-colors hover:bg-gray-100 xl:hidden"
         aria-label="Abrir menú"
         @click="uiStore.toggleSidebar"
       >
@@ -49,47 +52,70 @@ async function handleLogout() {
       </button>
 
       <p
-        class="max-w-[11rem] truncate text-xs font-medium text-gray-700 sm:max-w-none sm:text-sm"
+        class="min-w-0 truncate text-xs font-medium text-gray-700 sm:text-sm"
       >
         Sistema de punto de venta
       </p>
     </div>
 
-    <div class="relative">
+    <!-- Usuario -->
+    <div class="relative shrink-0">
       <button
         type="button"
-        class="flex items-center gap-3 rounded-xl p-2 transition-colors hover:bg-gray-100"
+        class="flex max-w-[190px] items-center gap-2 rounded-xl p-1.5 transition-colors hover:bg-gray-100 sm:max-w-[280px] sm:gap-3 sm:p-2"
         @click="menuOpen = !menuOpen"
       >
+        <!-- Avatar -->
         <div
-          class="flex h-9 w-9 items-center justify-center rounded-full bg-[#FBEFF3] font-semibold text-[#C56B86]"
+          class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#FBEFF3] text-sm font-semibold text-[#C56B86] sm:h-10 sm:w-10"
         >
           {{ initial }}
         </div>
 
-        <div class="hidden text-left md:block">
-          <p class="text-sm font-medium text-gray-800">
+        <!-- Nombre y rol -->
+        <div class="min-w-0 text-left">
+          <p
+            class="truncate text-xs font-medium text-gray-800 sm:text-sm"
+          >
             {{ authStore.user?.nombre ?? 'Usuario' }}
           </p>
 
-          <p class="text-xs text-gray-500">
+          <p
+            class="truncate text-[10px] text-gray-500 sm:text-xs"
+          >
             {{ roleLabel }}
           </p>
         </div>
 
-        <ChevronDownIcon class="hidden h-4 w-4 text-gray-400 sm:block" />
+        <!-- Flecha -->
+        <ChevronDownIcon
+          class="h-4 w-4 shrink-0 text-gray-400"
+        />
       </button>
 
+      <!-- Menú desplegable -->
       <div
         v-if="menuOpen"
-        class="absolute right-0 mt-2 w-48 rounded-xl border border-gray-100 bg-white p-2 shadow-lg"
+        class="absolute right-0 mt-2 w-[calc(100vw-24px)] max-w-56 rounded-xl border border-gray-100 bg-white p-2 shadow-lg sm:w-56"
       >
+        <!-- Información del usuario -->
+        <div class="border-b border-gray-100 px-3 py-2">
+          <p class="truncate text-sm font-medium text-gray-800">
+            {{ authStore.user?.nombre ?? 'Usuario' }}
+          </p>
+
+          <p class="truncate text-xs text-gray-500">
+            {{ roleLabel }}
+          </p>
+        </div>
+
+        <!-- Cerrar sesión -->
         <button
           type="button"
-          class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-gray-600 hover:bg-gray-50"
+          class="mt-1 flex min-h-10 w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-gray-600 transition-colors hover:bg-gray-50 active:bg-gray-100"
           @click="handleLogout"
         >
-          <ArrowRightStartOnRectangleIcon class="h-5 w-5" />
+          <ArrowRightStartOnRectangleIcon class="h-5 w-5 shrink-0" />
           Cerrar sesión
         </button>
       </div>
