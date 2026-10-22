@@ -13,6 +13,7 @@ const props = defineProps<Props>()
 const emit = defineEmits<{
   'update:from': [value: string]
   'update:to': [value: string]
+  'range-change': [from: string, to: string]
 }>()
 
 type Preset = 'today' | '7days' | '30days' | 'month' | 'all'
@@ -40,16 +41,32 @@ const activePreset = computed<Preset | null>(() => {
   return null
 })
 
+// Emite el intervalo completo en una sola notificación para evitar
+// que un componente padre combine una fecha nueva con otra anterior.
+function applyDateRange(from: string, to: string) {
+  emit('update:from', from)
+  emit('update:to', to)
+  emit('range-change', from, to)
+}
+
+function updateFrom(from: string) {
+  emit('update:from', from)
+  emit('range-change', from, props.to)
+}
+
+function updateTo(to: string) {
+  emit('update:to', to)
+  emit('range-change', props.from, to)
+}
+
 function applyPreset(preset: Preset) {
   if (preset === 'all') {
-    emit('update:from', '')
-    emit('update:to', '')
+    applyDateRange('', '')
     return
   }
 
   const range = getDatePresetRange(preset)
-  emit('update:from', range.from)
-  emit('update:to', range.to)
+  applyDateRange(range.from, range.to)
 }
 </script>
 
@@ -89,7 +106,7 @@ function applyPreset(preset: Preset) {
             :value="from"
             type="date"
             class="min-w-0 flex-1 bg-transparent text-sm font-medium text-gray-800 outline-none"
-            @input="emit('update:from', ($event.target as HTMLInputElement).value)"
+            @input="updateFrom(($event.target as HTMLInputElement).value)"
           />
         </label>
 
@@ -99,7 +116,7 @@ function applyPreset(preset: Preset) {
             :value="to"
             type="date"
             class="min-w-0 flex-1 bg-transparent text-sm font-medium text-gray-800 outline-none"
-            @input="emit('update:to', ($event.target as HTMLInputElement).value)"
+            @input="updateTo(($event.target as HTMLInputElement).value)"
           />
         </label>
       </div>

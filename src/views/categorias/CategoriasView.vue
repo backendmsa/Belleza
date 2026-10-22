@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref, nextTick } from 'vue'
 import {
   CheckCircleIcon,
   NoSymbolIcon,
@@ -141,6 +141,14 @@ async function confirmDelete() {
 }
 
 onMounted(loadCategorias)
+
+// Foco inicial únicamente en el buscador de esta pantalla (no modifica otros módulos).
+const busquedaCategoriasAuto = ref<HTMLElement | null>(null)
+onMounted(() => {
+  void nextTick(() => {
+    busquedaCategoriasAuto.value?.querySelector<HTMLInputElement>('input[type="search"]')?.focus({ preventScroll: true })
+  })
+})
 </script>
 
 <template>
@@ -159,7 +167,7 @@ onMounted(loadCategorias)
       </BaseButton>
     </div>
 
-    <div class="mb-5 max-w-xl">
+    <div ref="busquedaCategoriasAuto" class="mb-5 max-w-xl">
       <SearchBar v-model="search" placeholder="Buscar categoría..." />
     </div>
 

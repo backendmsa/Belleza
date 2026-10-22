@@ -1,98 +1,74 @@
 <script setup lang="ts">
-import { onMounted, ref, watch } from 'vue'
-import { PlusIcon } from '@heroicons/vue/24/outline'
+import { onMounted, ref, watch, nextTick } from 'vue'
+import { CheckCircleIcon, NoSymbolIcon, PencilSquareIcon, PlusIcon } from '@heroicons/vue/24/outline'
 
 import AppBreadcrumb from '@/components/layout/AppBreadcrumb.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import BaseLoader from '@/components/ui/BaseLoader.vue'
+import BaseModal from '@/components/ui/BaseModal.vue'
 import BasePagination from '@/components/ui/BasePagination.vue'
 import SearchBar from '@/components/common/SearchBar.vue'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
+import StatusChip from '@/components/common/StatusChip.vue'
 
-import ProductoAccordion from './components/ProductoAccordion.vue'
-import ProductoModal from './components/ProductoModal.vue'
+import ArticuloForm from './components/ArticuloForm.vue'
 
 import { getCategorias } from '@/api/categorias'
-import {
-  activarProducto,
-  createProducto,
-  desactivarProducto,
-  getProductosPage,
-  updateProducto,
-} from '@/api/productos'
-import {
-  activarVariante,
-  createVariante,
-  desactivarVariante,
-  getVariantesByProduct,
-  getVariantesPage,
-  updateVariante,
-} from '@/api/variantes'
+import { editarArticulo, getArticulosPage, registrarArticulo } from '@/api/articulos'
+import { activarVariante, desactivarVariante } from '@/api/variantes'
 import { getFriendlyError } from '@/utils/apiError'
+import { formatCurrency } from '@/utils/formatCurrency'
 import { showError, showSuccess } from '@/utils/notifications'
-import { useAuthStore } from '@/stores/auth'
 
 import type { Categoria } from '@/types/categoria'
-import type { Producto } from '@/types/producto'
-import type { Variante } from '@/types/variante'
-import type { ProductoFormData } from './components/ProductoForm.vue'
-import type { VarianteFormData } from './components/VarianteForm.vue'
-
-const authStore = useAuthStore()
+import type { Articulo, ArticuloFormValues } from '@/api/articulos'
 
 const search = ref('')
+// El filtro se envía al backend para que funcione en todas las páginas.
+const filtroEstado = ref<'todos' | 'true' | 'false'>('todos')
+const opcionesEstado = [
+  { valor: 'todos', texto: 'Todos' },
+  { valor: 'true', texto: 'Activos' },
+  { valor: 'false', texto: 'Inactivos' },
+] as const
 const loading = ref(false)
 const saving = ref(false)
-const productos = ref<Producto[]>([])
+const articulos = ref<Articulo[]>([])
 const categorias = ref<Categoria[]>([])
-
 const modalOpen = ref(false)
-const modalMode = ref<'producto' | 'variante'>('producto')
-const selectedProduct = ref<Producto | null>(null)
-const selectedVariant = ref<Variante | null>(null)
-
+const seleccionado = ref<Articulo | null>(null)
 const confirmOpen = ref(false)
-const deleteType = ref<'producto' | 'variante' | null>(null)
+const paraCambiarEstado = ref<Articulo | null>(null)
 
 const page = ref(1)
 const totalPages = ref(1)
 const count = ref(0)
 let requestId = 0
 
+async function cargarCategorias() {
+  try {
+    categorias.value = await getCategorias()
+  } catch (error) {
+    await showError(getFriendlyError(error, 'No fue posible cargar las categorías.'))
+  }
+}
+
 async function loadData() {
   const currentRequest = ++requestId
-  loading.value = !productos.value.length
-
+  loading.value = true
   try {
-    if (!categorias.value.length) categorias.value = await getCategorias()
-    const result = await getProductosPage(page.value, 10, {
-      activo: authStore.isAdmin ? 'todos' : undefined,
+    const result = await getArticulosPage(page.value, 10, {
+      activo: filtroEstado.value,
       search: search.value,
     })
-    const variantGroups = await Promise.all(
-      result.items.map((item) =>
-        getVariantesByProduct(item.id, authStore.isAdmin ? 'todos' : undefined),
-      ),
-    )
     if (currentRequest !== requestId) return
-
-    const categoryMap = new Map(categorias.value.map((item) => [item.id, item.nombre]))
-    productos.value = result.items.map((item, index) => ({
-      id: item.id,
-      categoriaId: item.categoria,
-      categoria: item.categoria_nombre ?? categoryMap.get(item.categoria) ?? 'Sin categoría',
-      nombre: item.nombre,
-      descripcion: item.descripcion ?? '',
-      activo: item.activo,
-      fechaCreacion: item.fecha_creacion,
-      fechaActualizacion: item.fecha_actualizacion,
-      variantes: variantGroups[index] ?? [],
-    }))
+    articulos.value = result.items
     count.value = result.count
     totalPages.value = result.totalPages
   } catch (error) {
-    if (currentRequest === requestId)
-      await showError(getFriendlyError(error, 'No fue posible cargar los productos.'))
+    if (currentRequest === requestId) {
+      await showError(getFriendlyError(error, 'No fue posible cargar los artículos.'))
+    }
   } finally {
     if (currentRequest === requestId) loading.value = false
   }
@@ -104,6 +80,11 @@ function goToPage(value: number) {
   void loadData()
 }
 
+watch(filtroEstado, () => {
+  page.value = 1
+  void loadData()
+})
+
 watch(search, (_value, _old, onCleanup) => {
   page.value = 1
   ++requestId
@@ -111,174 +92,104 @@ watch(search, (_value, _old, onCleanup) => {
   onCleanup(() => clearTimeout(timer))
 })
 
-function closeModal() {
+function nuevoArticulo() {
+  seleccionado.value = null
+  modalOpen.value = true
+}
+
+function editarSeleccionado(articulo: Articulo) {
+  seleccionado.value = articulo
+  modalOpen.value = true
+}
+
+function cerrarModal() {
+  if (saving.value) return
   modalOpen.value = false
-  selectedProduct.value = null
-  selectedVariant.value = null
+  seleccionado.value = null
 }
 
-function newProduct() {
-  selectedProduct.value = null
-  selectedVariant.value = null
-  modalMode.value = 'producto'
-  modalOpen.value = true
-}
-
-function editProduct(producto: Producto) {
-  selectedProduct.value = producto
-  selectedVariant.value = null
-  modalMode.value = 'producto'
-  modalOpen.value = true
-}
-
-function addVariant(producto: Producto) {
-  if (!producto.activo) return
-  selectedProduct.value = producto
-  selectedVariant.value = null
-  modalMode.value = 'variante'
-  modalOpen.value = true
-}
-
-function editVariant(variante: Variante) {
-  selectedProduct.value =
-    productos.value.find((item) => item.variantes.some((current) => current.id === variante.id)) ??
-    null
-  selectedVariant.value = variante
-  modalMode.value = 'variante'
-  modalOpen.value = true
-}
-
-function requestToggleProduct(producto: Producto) {
-  if (!authStore.isAdmin) return
-  selectedProduct.value = producto
-  selectedVariant.value = null
-  deleteType.value = 'producto'
-  confirmOpen.value = true
-}
-
-function requestToggleVariant(variante: Variante) {
-  if (!authStore.isAdmin) return
-  selectedVariant.value = variante
-  selectedProduct.value = null
-  deleteType.value = 'variante'
-  confirmOpen.value = true
-}
-
-async function saveProduct(data: ProductoFormData) {
+async function guardarArticulo(valores: ArticuloFormValues) {
+  if (saving.value) return
   saving.value = true
-
   try {
-    const payload = {
-      categoria: data.categoriaId,
-      nombre: data.nombre,
-      descripcion: data.descripcion,
-    }
-
-    if (selectedProduct.value) {
-      await updateProducto(selectedProduct.value.id, payload)
-      await showSuccess('Producto actualizado correctamente.')
+    let avisos = 0
+    let mensaje = ''
+    if (seleccionado.value) {
+      const resultado = await editarArticulo(seleccionado.value, valores)
+      if (!resultado.cambiado) {
+        modalOpen.value = false
+        seleccionado.value = null
+        await showSuccess('No había cambios pendientes de guardar.')
+        return
+      }
+      avisos = resultado.advertencias.length
+      mensaje = 'Artículo actualizado correctamente.'
     } else {
-      await createProducto(payload)
-      await showSuccess('Producto creado correctamente.')
+      const resultado = await registrarArticulo(valores)
+      avisos = resultado.advertenciasPrecios.length
+      mensaje = 'Artículo registrado correctamente.'
     }
 
-    closeModal()
+    // Cerrar sin resetear pantalla, actualizar solo esta página paginada.
+    modalOpen.value = false
+    seleccionado.value = null
     await loadData()
+    await showSuccess(
+      avisos ? `${mensaje} Se guardó con ${avisos} aviso(s) informativos de precios.` : mensaje,
+    )
+    // Se actualiza el catálogo de categorías por si el backend creó SIN CLASIFICAR.
+    void cargarCategorias()
   } catch (error) {
-    await showError(getFriendlyError(error, 'No fue posible guardar el producto.'))
+    await showError(getFriendlyError(error, 'No fue posible guardar el artículo.'))
   } finally {
     saving.value = false
   }
 }
 
-async function saveVariant(data: VarianteFormData) {
-  if (!selectedProduct.value) return
-
-  saving.value = true
-
-  try {
-    const normalizedSku = data.sku.trim().toLowerCase()
-    const normalizedBarcode = data.codigoBarras.trim().toLowerCase()
-    const [skuMatches, barcodeMatches] = await Promise.all([
-      getVariantesPage(1, 10, 'todos', { search: data.sku.trim() }),
-      getVariantesPage(1, 10, 'todos', { search: data.codigoBarras.trim() }),
-    ])
-    if (skuMatches.items.some((item) => item.id !== selectedVariant.value?.id && item.sku.trim().toLowerCase() === normalizedSku)) {
-      await showError('Ya existe una variante con ese SKU. Usa uno diferente.')
-      return
-    }
-    if (barcodeMatches.items.some((item) => item.id !== selectedVariant.value?.id && item.codigoBarras.trim().toLowerCase() === normalizedBarcode)) {
-      await showError('Ya existe una variante con ese código de barras. Usa uno diferente.')
-      return
-    }
-
-    const payload = {
-      producto: selectedProduct.value.id,
-      codigo_barras: data.codigoBarras,
-      sku: data.sku,
-      nombre: data.nombre,
-      stock_minimo: data.stockMinimo,
-      costo: data.costo,
-      precio_menudeo: data.precioMenudeo,
-      precio_mayoreo: data.precioMayoreo,
-      garantia_meses: data.garantiaMeses,
-    }
-
-    if (selectedVariant.value) {
-      await updateVariante(selectedVariant.value.id, payload)
-      await showSuccess('Variante actualizada correctamente.')
-    } else {
-      // El backend registra automáticamente el movimiento de inventario inicial.
-      await createVariante({ ...payload, stock: data.stock })
-      await showSuccess('Variante creada correctamente.')
-    }
-
-    closeModal()
-    await loadData()
-  } catch (error) {
-    await showError(getFriendlyError(error, 'No fue posible guardar la variante.'))
-  } finally {
-    saving.value = false
-  }
+function solicitarCambioEstado(articulo: Articulo) {
+  paraCambiarEstado.value = articulo
+  confirmOpen.value = true
 }
 
-async function confirmDelete() {
+async function confirmarCambioEstado() {
+  if (!paraCambiarEstado.value || saving.value) return
   saving.value = true
-
   try {
-    if (deleteType.value === 'producto' && selectedProduct.value) {
-      if (selectedProduct.value.activo) {
-        await desactivarProducto(selectedProduct.value.id)
-        await showSuccess('Producto desactivado correctamente.')
-      } else {
-        await activarProducto(selectedProduct.value.id)
-        await showSuccess('Producto activado correctamente.')
-      }
+    const articulo = paraCambiarEstado.value
+    if (articulo.activo) {
+      await desactivarVariante(articulo.varianteId)
+    } else {
+      await activarVariante(articulo.varianteId)
     }
-
-    if (deleteType.value === 'variante' && selectedVariant.value) {
-      if (selectedVariant.value.activo) {
-        await desactivarVariante(selectedVariant.value.id)
-        await showSuccess('Variante desactivada correctamente.')
-      } else {
-        await activarVariante(selectedVariant.value.id)
-        await showSuccess('Variante activada correctamente.')
-      }
-    }
-
     confirmOpen.value = false
+    paraCambiarEstado.value = null
     await loadData()
+    await showSuccess('Estado del artículo actualizado correctamente.')
   } catch (error) {
-    await showError(getFriendlyError(error, 'No fue posible desactivar el registro.'))
+    await showError(getFriendlyError(error, 'No fue posible modificar el estado del artículo.'))
   } finally {
     saving.value = false
-    deleteType.value = null
-    selectedProduct.value = null
-    selectedVariant.value = null
   }
 }
 
-onMounted(loadData)
+function stockStatus(articulo: Articulo) {
+  if (articulo.stock <= 0) return { status: 'danger' as const, label: 'Agotado' }
+  if (articulo.stock <= articulo.stockMinimo) return { status: 'warning' as const, label: 'Existencia baja' }
+  return { status: 'success' as const, label: 'Disponible' }
+}
+
+onMounted(() => {
+  void loadData()
+  void cargarCategorias()
+})
+
+// Foco inicial únicamente en el buscador de esta pantalla (no modifica otros módulos).
+const busquedaProductosAuto = ref<HTMLElement | null>(null)
+onMounted(() => {
+  void nextTick(() => {
+    busquedaProductosAuto.value?.querySelector<HTMLInputElement>('input[type="search"]')?.focus({ preventScroll: true })
+  })
+})
 </script>
 
 <template>
@@ -287,96 +198,145 @@ onMounted(loadData)
 
     <div class="mt-4 mb-8 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
       <div>
-        <h1 class="text-2xl font-semibold text-gray-900">Productos</h1>
-        <p class="mt-1 text-sm text-gray-500">Administra los productos y sus variantes.</p>
+        <h1 class="text-2xl font-semibold text-gray-900">Gestión de productos</h1>
+        <p class="mt-1 text-sm text-gray-500">
+          Administra tus artículos, precios y existencias desde una sola lista.
+        </p>
       </div>
-
-      <BaseButton :disabled="!categorias.some((item) => item.activo)" @click="newProduct">
+      <BaseButton @click="nuevoArticulo">
         <PlusIcon class="h-4 w-4" />
-        Nuevo producto
+        Agregar artículo
       </BaseButton>
     </div>
 
-    <p
-      v-if="!loading && !categorias.length"
-      class="mb-5 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-700"
-    >
-      Primero registra una categoría para poder crear productos.
-    </p>
-
-    <div class="mb-5 max-w-xl">
-      <SearchBar v-model="search" placeholder="Buscar producto, variante, SKU o código..." />
-    </div>
-
-    <BaseLoader v-if="loading" text="Cargando productos..." />
-
-    <div v-else class="space-y-4">
-      <ProductoAccordion
-        v-for="producto in productos"
-        :key="producto.id"
-        :producto="producto"
-        :can-toggle="authStore.isAdmin"
-        @edit-product="editProduct"
-        @toggle-product="requestToggleProduct"
-        @add-variant="addVariant"
-        @edit-variant="editVariant"
-        @toggle-variant="requestToggleVariant"
-      />
-
-      <BasePagination
-        v-if="count > 10"
-        :page="page"
-        :total-pages="totalPages"
-        @change="goToPage"
-      />
-
-      <div
-        v-if="!productos.length"
-        class="rounded-2xl border border-[#ECECEC] bg-white p-12 text-center"
-      >
-        <p class="font-medium text-gray-900">No se encontraron productos</p>
-        <p class="mt-1 text-sm text-gray-500">Registra un producto o intenta otra búsqueda.</p>
+    <div class="mb-5 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+      <div ref="busquedaProductosAuto" class="w-full max-w-xl">
+        <SearchBar v-model="search" placeholder="Buscar artículo, categoría, clave o código de barras..." />
+      </div>
+      <div class="flex flex-wrap items-center gap-2" role="group" aria-label="Filtrar por estado">
+        <span class="mr-1 text-sm font-medium text-gray-600">Estado:</span>
+        <button
+          v-for="opcion in opcionesEstado"
+          :key="opcion.valor"
+          type="button"
+          :aria-pressed="filtroEstado === opcion.valor"
+          :class="[
+            'rounded-lg border px-3 py-2 text-sm font-medium transition-colors',
+            filtroEstado === opcion.valor
+              ? 'border-[#C56B86] bg-[#FBEFF3] text-[#A84968]'
+              : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50',
+          ]"
+          @click="filtroEstado = opcion.valor"
+        >
+          {{ opcion.texto }}
+        </button>
       </div>
     </div>
 
-    <ProductoModal
+    <BaseLoader v-if="loading" text="Cargando artículos..." />
+
+    <div v-else class="overflow-hidden rounded-2xl border border-[#ECECEC] bg-white">
+      <div class="overflow-x-auto">
+        <table class="mobile-stack-table w-full min-w-[1120px] text-left text-sm">
+          <thead class="border-b border-gray-200 bg-gray-50">
+            <tr class="text-xs font-semibold uppercase text-gray-500">
+              <th class="px-4 py-4">Artículo</th>
+              <th class="px-4 py-4">Categoría</th>
+              <th class="px-4 py-4">Clave del artículo</th>
+              <th class="px-4 py-4">Código de barras</th>
+              <th class="px-4 py-4">Precio compra</th>
+              <th class="px-4 py-4">Precio venta</th>
+              <th class="px-4 py-4">Mayoreo</th>
+              <th class="px-4 py-4">Existencia</th>
+              <th class="px-4 py-4">Estado</th>
+              <th class="px-4 py-4 text-right">Acciones</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-100">
+            <tr v-for="articulo in articulos" :key="articulo.varianteId" class="interactive-lift-row">
+              <td data-label="Artículo" class="px-4 py-4 font-medium text-gray-900">
+                {{ articulo.nombreMostrar }}
+              </td>
+              <td data-label="Categoría" class="px-4 py-4 text-gray-600">
+                {{ articulo.categoriaNombre }}
+              </td>
+              <td data-label="Clave del artículo" class="px-4 py-4 text-gray-600">{{ articulo.sku || '—' }}</td>
+              <td data-label="Código de barras" class="px-4 py-4 font-mono text-xs text-gray-600">
+                {{ articulo.codigoBarras || '—' }}
+              </td>
+              <td data-label="Precio compra" class="px-4 py-4 text-gray-600">{{ formatCurrency(articulo.costo) }}</td>
+              <td data-label="Precio venta" class="px-4 py-4 font-medium">{{ formatCurrency(articulo.precioVenta) }}</td>
+              <td data-label="Mayoreo" class="px-4 py-4 text-gray-600">
+                {{ articulo.precioMayoreo > 0 ? formatCurrency(articulo.precioMayoreo) : 'Sin configurar' }}
+              </td>
+              <td data-label="Existencia" class="px-4 py-4">
+                <div class="flex flex-col items-start gap-1">
+                  <span class="font-medium">{{ articulo.stock }}</span>
+                  <StatusChip :status="stockStatus(articulo).status" :label="stockStatus(articulo).label" />
+                </div>
+              </td>
+              <td data-label="Estado" class="px-4 py-4">
+                <StatusChip :status="articulo.activo ? 'success' : 'neutral'" :label="articulo.activo ? 'Activo' : 'Inactivo'" />
+              </td>
+              <td data-label="Acciones" class="px-4 py-4">
+                <div class="flex justify-end gap-1">
+                  <button
+                    type="button"
+                    class="rounded-lg p-2 text-gray-500 hover:bg-[#FBEFF3] hover:text-[#C56B86]"
+                    aria-label="Editar artículo"
+                    @click="editarSeleccionado(articulo)"
+                  >
+                    <PencilSquareIcon class="h-5 w-5" />
+                  </button>
+                  <button
+                    type="button"
+                    class="rounded-lg p-2 text-gray-500 hover:bg-[#FBEFF3] hover:text-[#C56B86]"
+                    :aria-label="articulo.activo ? 'Desactivar artículo' : 'Activar artículo'"
+                    @click="solicitarCambioEstado(articulo)"
+                  >
+                    <NoSymbolIcon v-if="articulo.activo" class="h-5 w-5" />
+                    <CheckCircleIcon v-else class="h-5 w-5" />
+                  </button>
+                </div>
+              </td>
+            </tr>
+            <tr v-if="!articulos.length">
+              <td colspan="10" class="px-5 py-12 text-center text-gray-500">
+                No se encontraron artículos. Prueba otra búsqueda o agrega uno nuevo.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div v-if="count > 10" class="mt-5">
+      <BasePagination :page="page" :total-pages="totalPages" @change="goToPage" />
+    </div>
+
+    <BaseModal
       :open="modalOpen"
-      :mode="modalMode"
-      :categorias="categorias"
-      :producto="selectedProduct"
-      :variante="selectedVariant"
-      @close="closeModal"
-      @submit-product="saveProduct"
-      @submit-variant="saveVariant"
-    />
+      :title="seleccionado ? 'Editar artículo' : 'Registrar artículo'"
+      max-width="lg"
+      @close="cerrarModal"
+    >
+      <ArticuloForm
+        :key="seleccionado?.varianteId ?? 'new-article'"
+        :articulo="seleccionado"
+        :categorias="categorias"
+        :saving="saving"
+        @submit="guardarArticulo"
+        @cancel="cerrarModal"
+      />
+    </BaseModal>
 
     <ConfirmDialog
       :open="confirmOpen"
-      :title="
-        deleteType === 'producto'
-          ? selectedProduct?.activo
-            ? 'Desactivar producto'
-            : 'Activar producto'
-          : selectedVariant?.activo
-            ? 'Desactivar variante'
-            : 'Activar variante'
-      "
-      :description="
-        deleteType === 'producto'
-          ? selectedProduct?.activo
-            ? '¿Deseas desactivar este producto?'
-            : '¿Deseas activar este producto?'
-          : selectedVariant?.activo
-            ? '¿Deseas desactivar esta variante?'
-            : '¿Deseas activar esta variante?'
-      "
-      :confirm-text="
-        (deleteType === 'producto' ? selectedProduct?.activo : selectedVariant?.activo)
-          ? 'Desactivar'
-          : 'Activar'
-      "
+      :title="paraCambiarEstado?.activo ? 'Desactivar artículo' : 'Activar artículo'"
+      :description="`¿Deseas ${paraCambiarEstado?.activo ? 'desactivar' : 'activar'} «${paraCambiarEstado?.nombreMostrar ?? ''}»?`"
+      :confirm-text="paraCambiarEstado?.activo ? 'Desactivar' : 'Activar'"
       :loading="saving"
-      @confirm="confirmDelete"
+      @confirm="confirmarCambioEstado"
       @cancel="confirmOpen = false"
     />
   </section>

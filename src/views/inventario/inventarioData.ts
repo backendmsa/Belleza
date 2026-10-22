@@ -47,7 +47,7 @@ export async function enrichMovements(movimientos: MovimientoInventario[]): Prom
     const variant = item.varianteId ? byId.get(item.varianteId) : undefined
     return {
       ...item,
-      producto: item.productoNombre ?? variant?.producto ?? 'Producto no identificado',
+      producto: item.productoNombre ?? variant?.producto ?? 'Artículo no identificado',
       sku: item.sku ?? variant?.sku ?? '—',
     }
   })

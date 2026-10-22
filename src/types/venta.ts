@@ -55,6 +55,9 @@ export interface VentaDetalle {
   iva: number
   total: number
   estado: EstadoVenta
+  // Solo en ventas en efectivo registradas con la nueva versión.
+  efectivoRecibido?: number | null
+  cambio?: number | null
   productos: DetalleVentaProducto[]
 }
 
@@ -62,6 +65,8 @@ export interface VentaPayload {
   caja_id: string
   metodo_pago_id: string
   descuento: number
+  // Optional: el backend acepta clientes antiguos sin este dato.
+  efectivo_recibido?: number
   productos: Array<{
     variante_id: string
     cantidad: number

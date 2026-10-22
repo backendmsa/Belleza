@@ -47,7 +47,11 @@ function statusFor(estado: VentaResumen['estado']) {
 <template>
   <div class="overflow-hidden rounded-2xl border border-[#ECECEC] bg-white">
     <div class="border-b border-gray-100 p-4">
-      <BaseDateRangeFilter :from="dateFrom" :to="dateTo" @update:from="emit('dates', $event, dateTo)" @update:to="emit('dates', dateFrom, $event)" />
+      <BaseDateRangeFilter
+        :from="dateFrom"
+        :to="dateTo"
+        @range-change="(from, to) => emit('dates', from, to)"
+      />
     </div>
 
     <div class="overflow-x-auto">

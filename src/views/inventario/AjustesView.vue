@@ -35,8 +35,12 @@ const movimientos = ref<MovimientoVista[]>([])
 const variantesOptions = computed(() =>
   catalog.value.map((item) => ({
     value: item.id,
-    label: `${item.producto} - ${item.variante}`,
+    label: item.producto === item.variante
+      ? item.variante
+      : `${item.producto} - ${item.variante}`,
     stock: item.stock,
+    clave: item.sku,
+    codigoBarras: item.codigoBarras,
   })),
 )
 
@@ -126,7 +130,7 @@ onMounted(loadData)
       <div>
         <h1 class="text-2xl font-semibold text-gray-900">Ajustes de inventario</h1>
         <p class="mt-1 text-sm text-gray-500">
-          Registra el stock real después de revisar el producto.
+          Registra la existencia real después de contar las unidades.
         </p>
       </div>
 
@@ -147,7 +151,7 @@ onMounted(loadData)
     </div>
 
     <div class="mb-5 max-w-xl">
-      <SearchBar v-model="search" placeholder="Buscar producto, variante, SKU o motivo..." />
+      <SearchBar autofocus v-model="search" placeholder="Buscar artículo, variante, clave del artículo o motivo..." />
     </div>
 
     <BaseLoader v-if="loading" text="Cargando ajustes..." />
@@ -158,10 +162,10 @@ onMounted(loadData)
           <thead class="border-b border-gray-200 bg-gray-50">
             <tr class="text-xs font-semibold uppercase text-gray-500">
               <th class="px-5 py-4">Fecha</th>
-              <th class="px-5 py-4">Producto</th>
+              <th class="px-5 py-4">Artículo</th>
               <th class="px-5 py-4">Variante</th>
-              <th class="px-5 py-4">SKU</th>
-              <th class="px-5 py-4">Stock real</th>
+              <th class="px-5 py-4">Clave del artículo</th>
+              <th class="px-5 py-4">Existencia real final</th>
               <th class="px-5 py-4">Motivo</th>
               <th class="px-5 py-4">Usuario</th>
             </tr>
@@ -172,13 +176,17 @@ onMounted(loadData)
               <td data-label="Fecha" class="whitespace-nowrap px-5 py-4 text-gray-600">
                 {{ formatDate(item.fecha) }}
               </td>
-              <td data-label="Producto" class="px-5 py-4 font-medium text-gray-900">
+              <td data-label="Artículo" class="px-5 py-4 font-medium text-gray-900">
                 {{ item.producto }}
               </td>
               <td data-label="Variante" class="px-5 py-4 text-gray-600">{{ item.variante }}</td>
-              <td data-label="SKU" class="px-5 py-4 text-gray-600">{{ item.sku }}</td>
-              <td data-label="Stock real" class="px-5 py-4">
-                <StatusChip status="info" :label="String(item.cantidad)" />
+              <td data-label="Clave del artículo" class="px-5 py-4 text-gray-600">{{ item.sku }}</td>
+              <td data-label="Existencia real final" class="px-5 py-4">
+                <StatusChip status="info" :label="String(item.stockNuevo ?? '—')" />
+                <p v-if="item.stockAnterior != null && item.stockNuevo != null" class="mt-1 text-xs text-gray-600">
+                  {{ item.stockAnterior }} → {{ item.stockNuevo }}
+                  ({{ item.stockNuevo > item.stockAnterior ? '+' : '' }}{{ item.stockNuevo - item.stockAnterior }})
+                </p>
               </td>
               <td data-label="Motivo" class="px-5 py-4 text-gray-600">
                 {{ item.observaciones || 'Sin observaciones' }}

@@ -127,6 +127,14 @@ onBeforeUnmount(() => {
           <dt>Total</dt>
           <dd>{{ formatCurrency(venta.total) }}</dd>
         </div>
+        <div v-if="venta.efectivoRecibido != null" class="flex justify-between">
+          <dt>Efectivo recibido</dt>
+          <dd>{{ formatCurrency(venta.efectivoRecibido) }}</dd>
+        </div>
+        <div v-if="venta.cambio != null" class="flex justify-between">
+          <dt>Cambio</dt>
+          <dd>{{ formatCurrency(venta.cambio) }}</dd>
+        </div>
       </dl>
 
       <div

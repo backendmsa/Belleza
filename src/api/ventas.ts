@@ -37,6 +37,8 @@ interface VentaDetalleApi {
   iva: string | number
   total: string | number
   estado: EstadoVenta
+  efectivo_recibido?: string | number | null
+  cambio?: string | number | null
   productos: Array<{
     detalle_id: string
     variante_id: string
@@ -124,6 +126,8 @@ export async function getVenta(id: string): Promise<VentaDetalle> {
     usuario: item.usuario,
     metodoPago: item.metodo_pago,
     caja: item.caja,
+    efectivoRecibido: item.efectivo_recibido == null ? null : Number(item.efectivo_recibido),
+    cambio: item.cambio == null ? null : Number(item.cambio),
     subtotal: Number(item.subtotal),
     descuento: Number(item.descuento ?? 0),
     iva: Number(item.iva),
@@ -160,6 +164,8 @@ interface TicketApi {
     folio?: string
     fecha?: string
     metodo_pago?: string
+    efectivo_recibido?: string | number | null
+    cambio?: string | number | null
     estado?: EstadoVenta
   }
   usuario?: {
@@ -195,6 +201,8 @@ function mapTicket(id: string, response: { data?: TicketApi } | TicketApi): Tick
       usuario: item.usuario?.nombre ?? 'Usuario',
       metodoPago: venta.metodo_pago ?? 'No especificado',
       caja: '',
+      efectivoRecibido: venta.efectivo_recibido == null ? null : Number(venta.efectivo_recibido),
+      cambio: venta.cambio == null ? null : Number(venta.cambio),
       subtotal: Number(totals.subtotal ?? 0),
       descuento: Number(totals.descuento ?? 0),
       iva: Number(totals.iva ?? 0),

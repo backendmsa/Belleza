@@ -21,7 +21,7 @@ export interface MovimientoInventario {
 export interface MovimientoPayload {
   variante_id: string
   cantidad: number
-  observaciones: string
+  observaciones?: string // Opcionales para entrada, salida y ajuste
 }
 
 export interface MovimientoResultado {

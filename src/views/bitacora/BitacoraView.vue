@@ -30,6 +30,8 @@ const totalPages = ref(1)
 const pageSize = 50
 const nextUrl = ref<string | null>(null)
 const previousUrl = ref<string | null>(null)
+// Descarta resultados antiguos si se cambia rápido el periodo.
+let latestRequestId = 0
 const userOptions = ref<Array<{ label: string; value: string }>>([
   { label: 'Todos los usuarios', value: '' },
 ])
@@ -53,24 +55,37 @@ function params(): Record<string, string> {
   return result
 }
 async function loadData(targetPage = 1, pageUrl?: string) {
-  if (loading.value) return
+  const requestId = ++latestRequestId
   if (dateFrom.value && dateTo.value && dateFrom.value > dateTo.value) {
+    loading.value = false
     await showError('La fecha inicial no puede ser posterior a la fecha final.')
     return
   }
+
   loading.value = true
   try {
     const result = await getBitacoraPage(targetPage, pageSize, params(), pageUrl)
+    if (requestId !== latestRequestId) return
+
     registros.value = result.items
     page.value = result.page
     totalPages.value = result.totalPages
     nextUrl.value = result.next
     previousUrl.value = result.previous
   } catch (error) {
+    if (requestId !== latestRequestId) return
     await showError(getFriendlyError(error, 'No fue posible cargar la bitácora.'))
   } finally {
-    loading.value = false
+    if (requestId === latestRequestId) loading.value = false
   }
+}
+
+function changeDates(from: string, to: string) {
+  if (dateFrom.value === from && dateTo.value === to) return
+  dateFrom.value = from
+  dateTo.value = to
+  // Siempre consultar la primera página del rango nuevo.
+  void loadData(1)
 }
 async function clearFilters() {
   usuario.value = ''
@@ -117,7 +132,12 @@ onMounted(initialize)
       </p>
     </div>
 
-    <BaseDateRangeFilter v-model:from="dateFrom" v-model:to="dateTo" class="mb-4" />
+    <BaseDateRangeFilter
+      :from="dateFrom"
+      :to="dateTo"
+      class="mb-4"
+      @range-change="changeDates"
+    />
     <div
       class="mb-5 grid gap-3 rounded-xl border border-gray-200 bg-white p-4 sm:grid-cols-2 lg:grid-cols-3"
     >

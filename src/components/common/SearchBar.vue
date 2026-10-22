@@ -1,15 +1,28 @@
 <script setup lang="ts">
+import { nextTick, onMounted, ref } from 'vue'
 import { MagnifyingGlassIcon } from '@heroicons/vue/24/outline'
 
 interface Props {
   modelValue?: string
   placeholder?: string
+  autofocus?: boolean
+  id?: string
 }
 
-withDefaults(defineProps<Props>(), {
+const props = withDefaults(defineProps<Props>(), {
   modelValue: '',
   placeholder: 'Buscar...',
+  autofocus: false,
 })
+
+const inputRef = ref<HTMLInputElement | null>(null)
+function focus() { inputRef.value?.focus({ preventScroll: true }) }
+onMounted(async () => {
+  if (!props.autofocus) return
+  await nextTick()
+  focus()
+})
+defineExpose({ focus })
 
 const emit = defineEmits<{
   'update:modelValue': [value: string]
@@ -36,6 +49,9 @@ function updateValue(event: Event) {
     />
 
     <input
+      ref="inputRef"
+      :id="id"
+      :autofocus="autofocus"
       :value="modelValue"
       type="search"
       enterkeyhint="done"

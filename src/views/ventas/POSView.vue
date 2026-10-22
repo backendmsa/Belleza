@@ -62,6 +62,7 @@ const { items, descuento, subtotal, descuentoAplicado, iva, total, totalArticulo
 const tab = ref<PosTab>('venta')
 const search = ref('')
 const scannerCode = ref('')
+const scannerInput = ref<HTMLInputElement | null>(null)
 const scannerMessage = ref('')
 const loading = ref(false)
 const saving = ref(false)
@@ -105,6 +106,25 @@ const processingBarcode = ref(false)
 const isMobile = ref(false)
 
 const videoElement = ref<HTMLVideoElement | null>(null)
+
+// Enfocar solo si el usuario NO está escribiendo en otro control.
+// No escuchamos el teclado global: así no interceptamos descuentos, búsqueda o cobro.
+function focusScannerIfAvailable() {
+  if (tab.value !== 'venta' || loading.value || paymentOpen.value ||
+      ticketOpen.value || cancelOpen.value || cameraOpen.value) return
+  const input = scannerInput.value
+  if (!input) return
+  const active = document.activeElement
+  if (active instanceof HTMLElement && active !== input &&
+      (active.matches('input, textarea, select') || active.isContentEditable)) return
+  input.focus({ preventScroll: true })
+}
+
+// Al entrar a Nueva venta, tras carga de datos y al cerrar ventanas del POS.
+watch([tab, loading, paymentOpen, ticketOpen, cancelOpen, cameraOpen], async () => {
+  await nextTick()
+  focusScannerIfAvailable()
+})
 
 const barcodeReader = new BrowserMultiFormatReader(undefined, {
   delayBetweenScanAttempts: 100,
@@ -297,6 +317,14 @@ async function scanCode() {
       'No se encontró una variante con ese código.',
     )
   }
+}
+
+// La cámara sigue usando scanCode() directamente, sin cambiar su flujo.
+// Solo el formulario USB recupera el foco después de pulsar Agregar / Enter.
+async function scanCodeFromForm() {
+  await scanCode()
+  await nextTick()
+  focusScannerIfAvailable()
 }
 
 async function waitForCameraStream() {
@@ -671,6 +699,7 @@ async function confirmPayment() {
       caja_id: selectedCajaId.value,
       metodo_pago_id: paymentMethodId.value,
       descuento: descuentoAplicado.value,
+      ...(isCash.value ? { efectivo_recibido: received.value } : {}),
 
       productos: items.value.map((item) => ({
         variante_id: item.variante.id,
@@ -857,11 +886,12 @@ onUnmounted(() => {
 
           <form
             class="mt-4 flex flex-col gap-3 sm:flex-row"
-            @submit.prevent="scanCode"
+            @submit.prevent="scanCodeFromForm"
           >
             <div class="flex min-w-0 flex-1 gap-2">
 
               <input
+                ref="scannerInput"
                 v-model="scannerCode"
                 type="text"
                 inputmode="numeric"

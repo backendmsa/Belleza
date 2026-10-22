@@ -48,7 +48,7 @@ function getStockStatus(item: CatalogVariant) {
   }
 
   if (item.stock <= item.stockMinimo) {
-    return { status: 'warning' as const, label: 'Stock bajo' }
+    return { status: 'warning' as const, label: 'Existencia baja' }
   }
 
   return { status: 'success' as const, label: 'Disponible' }
@@ -114,7 +114,7 @@ onMounted(loadData)
     </div>
 
     <div class="mb-5 max-w-xl">
-      <SearchBar v-model="search" placeholder="Buscar producto, variante, SKU o código..." />
+      <SearchBar autofocus v-model="search" placeholder="Buscar artículo, variante, clave o código de barras..." />
     </div>
 
     <BaseLoader v-if="loading" text="Cargando inventario..." />
@@ -124,34 +124,34 @@ onMounted(loadData)
         <table class="mobile-stack-table w-full min-w-[900px] text-left text-sm">
           <thead class="border-b border-gray-200 bg-gray-50">
             <tr class="text-xs font-semibold uppercase text-gray-500">
-              <th class="px-5 py-4">Producto</th>
+              <th class="px-5 py-4">Artículo</th>
               <th class="px-5 py-4">Variante</th>
-              <th class="px-5 py-4">SKU</th>
-              <th class="px-5 py-4">Código</th>
-              <th class="px-5 py-4">Stock</th>
-              <th class="px-5 py-4">Defectuosos</th>
-              <th class="px-5 py-4">Mínimo</th>
+              <th class="px-5 py-4">Clave del artículo</th>
+              <th class="px-5 py-4">Código de barras</th>
+              <th class="px-5 py-4">Existencia</th>
+              <th class="px-5 py-4">Unidades defectuosas</th>
+              <th class="px-5 py-4">Existencia mínima</th>
               <th class="px-5 py-4">Estado</th>
             </tr>
           </thead>
 
           <tbody class="divide-y divide-gray-100">
             <tr v-for="item in inventario" :key="item.id" class="interactive-lift-row">
-              <td data-label="Producto" class="px-5 py-4 font-medium text-gray-900">
+              <td data-label="Artículo" class="px-5 py-4 font-medium text-gray-900">
                 {{ item.producto }}
               </td>
               <td data-label="Variante" class="px-5 py-4 text-gray-600">{{ item.variante }}</td>
-              <td data-label="SKU" class="px-5 py-4 text-gray-600">{{ item.sku }}</td>
-              <td data-label="Código" class="px-5 py-4 font-mono text-xs text-gray-600">
+              <td data-label="Clave del artículo" class="px-5 py-4 text-gray-600">{{ item.sku }}</td>
+              <td data-label="Código de barras" class="px-5 py-4 font-mono text-xs text-gray-600">
                 {{ item.codigoBarras }}
               </td>
-              <td data-label="Stock" class="px-5 py-4 font-medium text-gray-900">
+              <td data-label="Existencia" class="px-5 py-4 font-medium text-gray-900">
                 {{ item.stock }}
               </td>
-              <td data-label="Defectuosos" class="px-5 py-4 font-medium text-red-600">
+              <td data-label="Unidades defectuosas" class="px-5 py-4 font-medium text-red-600">
                 {{ item.stockDefectuoso }}
               </td>
-              <td data-label="Mínimo" class="px-5 py-4 text-gray-600">{{ item.stockMinimo }}</td>
+              <td data-label="Existencia mínima" class="px-5 py-4 text-gray-600">{{ item.stockMinimo }}</td>
               <td data-label="Estado" class="px-5 py-4">
                 <StatusChip
                   :status="getStockStatus(item).status"

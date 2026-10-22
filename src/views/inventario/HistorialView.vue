@@ -70,6 +70,10 @@ function statusFor(type: TipoMovimientoInventario) {
 function quantityLabel(item: MovimientoVista) {
   if (item.tipo === 'ENTRADA' || item.tipo === 'DEVOLUCION') return `+${item.cantidad}`
   if (item.tipo === 'SALIDA') return `-${item.cantidad}`
+  if (item.tipo === 'AJUSTE' && item.stockAnterior != null && item.stockNuevo != null) {
+    const diferencia = item.stockNuevo - item.stockAnterior
+    return `${item.stockAnterior} → ${item.stockNuevo} (${diferencia > 0 ? '+' : ''}${diferencia})`
+  }
   return String(item.cantidad)
 }
 
@@ -133,7 +137,7 @@ onMounted(loadData)
 
     <div class="mb-5 flex flex-col gap-3 md:flex-row md:items-center">
       <div class="w-full max-w-xl">
-        <SearchBar v-model="search" placeholder="Buscar producto, variante, SKU o motivo..." />
+        <SearchBar autofocus v-model="search" placeholder="Buscar artículo, variante, clave del artículo o motivo..." />
       </div>
 
       <div class="w-full md:w-64">
@@ -174,7 +178,7 @@ onMounted(loadData)
             </div>
 
             <div>
-              <p class="text-xs uppercase text-gray-400">Cantidad</p>
+              <p class="text-xs uppercase text-gray-400">Movimiento / existencia</p>
               <p class="mt-1 font-semibold text-gray-900">
                 {{ quantityLabel(item) }}
               </p>
@@ -210,11 +214,11 @@ onMounted(loadData)
             <thead class="border-b border-gray-200 bg-gray-50">
               <tr class="text-xs font-semibold uppercase text-gray-500">
                 <th class="px-5 py-4">Fecha</th>
-                <th class="px-5 py-4">Producto</th>
+                <th class="px-5 py-4">Artículo</th>
                 <th class="px-5 py-4">Variante</th>
-                <th class="px-5 py-4">SKU</th>
+                <th class="px-5 py-4">Clave del artículo</th>
                 <th class="px-5 py-4">Tipo</th>
-                <th class="px-5 py-4">Cantidad</th>
+                <th class="px-5 py-4">Movimiento / existencia</th>
                 <th class="px-5 py-4">Motivo</th>
                 <th class="px-5 py-4">Usuario</th>
               </tr>
@@ -225,18 +229,18 @@ onMounted(loadData)
                 <td data-label="Fecha" class="whitespace-nowrap px-5 py-4 text-gray-600">
                   {{ formatDate(item.fecha) }}
                 </td>
-                <td data-label="Producto" class="px-5 py-4 font-medium text-gray-900">
+                <td data-label="Artículo" class="px-5 py-4 font-medium text-gray-900">
                   {{ item.producto }}
                 </td>
                 <td data-label="Variante" class="px-5 py-4 text-gray-600">{{ item.variante }}</td>
-                <td data-label="SKU" class="px-5 py-4 text-gray-600">{{ item.sku }}</td>
+                <td data-label="Clave del artículo" class="px-5 py-4 text-gray-600">{{ item.sku }}</td>
                 <td data-label="Tipo" class="px-5 py-4">
                   <StatusChip
                     :status="statusFor(item.tipo).status"
                     :label="statusFor(item.tipo).label"
                   />
                 </td>
-                <td data-label="Cantidad" class="px-5 py-4 font-semibold text-gray-900">
+                <td data-label="Movimiento / existencia" class="px-5 py-4 font-semibold text-gray-900">
                   {{ quantityLabel(item) }}
                 </td>
                 <td data-label="Motivo" class="px-5 py-4 text-gray-600">

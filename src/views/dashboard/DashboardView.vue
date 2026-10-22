@@ -68,7 +68,7 @@ const stats = computed(() => [
     icon: CubeIcon,
   },
   {
-    title: 'Stock bajo',
+    title: 'Existencias bajas',
     value: lowStockError.value ? '—' : String(lowStockCount.value),
     detail: lowStockError.value ? 'No disponible' : 'Requieren atención',
     icon: ArchiveBoxIcon,
@@ -217,7 +217,7 @@ onMounted(loadData)
         <div class="rounded-2xl border border-[#ECECEC] bg-white">
           <div class="flex items-center justify-between border-b border-gray-100 px-5 py-4">
             <div>
-              <h2 class="font-semibold text-gray-900">Stock bajo</h2>
+              <h2 class="font-semibold text-gray-900">Existencias bajas</h2>
               <p class="mt-1 text-xs text-gray-500">Variantes que requieren atención.</p>
             </div>
 
@@ -248,10 +248,10 @@ onMounted(loadData)
             </div>
 
             <p v-if="lowStockError" class="px-5 py-8 text-center text-sm text-amber-700">
-              No fue posible consultar las alertas de stock.
+              No fue posible consultar las alertas de existencias bajas.
             </p>
             <p v-else-if="!lowStock.length" class="px-5 py-8 text-center text-sm text-gray-500">
-              No hay productos con stock bajo.
+              No hay artículos con existencias bajas.
             </p>
           </div>
         </div>

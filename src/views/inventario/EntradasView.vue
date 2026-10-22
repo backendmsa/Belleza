@@ -35,8 +35,12 @@ const movimientos = ref<MovimientoVista[]>([])
 const variantesOptions = computed(() =>
   catalog.value.map((item) => ({
     value: item.id,
-    label: `${item.producto} - ${item.variante}`,
+    label: item.producto === item.variante
+      ? item.variante
+      : `${item.producto} - ${item.variante}`,
     stock: item.stock,
+    clave: item.sku,
+    codigoBarras: item.codigoBarras,
   })),
 )
 
@@ -147,7 +151,7 @@ onMounted(loadData)
     </div>
 
     <div class="mb-5 max-w-xl">
-      <SearchBar v-model="search" placeholder="Buscar producto, variante, SKU o motivo..." />
+      <SearchBar autofocus v-model="search" placeholder="Buscar artículo, variante, clave del artículo o motivo..." />
     </div>
 
     <BaseLoader v-if="loading" text="Cargando movimientos..." />
@@ -158,10 +162,10 @@ onMounted(loadData)
           <thead class="border-b border-gray-200 bg-gray-50">
             <tr class="text-xs font-semibold uppercase text-gray-500">
               <th class="px-5 py-4">Fecha</th>
-              <th class="px-5 py-4">Producto</th>
+              <th class="px-5 py-4">Artículo</th>
               <th class="px-5 py-4">Variante</th>
-              <th class="px-5 py-4">SKU</th>
-              <th class="px-5 py-4">Cantidad</th>
+              <th class="px-5 py-4">Clave del artículo</th>
+              <th class="px-5 py-4">Unidades ingresadas</th>
               <th class="px-5 py-4">Motivo</th>
               <th class="px-5 py-4">Usuario</th>
             </tr>
@@ -172,12 +176,12 @@ onMounted(loadData)
               <td data-label="Fecha" class="whitespace-nowrap px-5 py-4 text-gray-600">
                 {{ formatDate(item.fecha) }}
               </td>
-              <td data-label="Producto" class="px-5 py-4 font-medium text-gray-900">
+              <td data-label="Artículo" class="px-5 py-4 font-medium text-gray-900">
                 {{ item.producto }}
               </td>
               <td data-label="Variante" class="px-5 py-4 text-gray-600">{{ item.variante }}</td>
-              <td data-label="SKU" class="px-5 py-4 text-gray-600">{{ item.sku }}</td>
-              <td data-label="Cantidad" class="px-5 py-4">
+              <td data-label="Clave del artículo" class="px-5 py-4 text-gray-600">{{ item.sku }}</td>
+              <td data-label="Unidades ingresadas" class="px-5 py-4">
                 <StatusChip status="success" :label="`+${item.cantidad}`" />
               </td>
               <td data-label="Motivo" class="px-5 py-4 text-gray-600">
