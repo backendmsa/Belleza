@@ -131,7 +131,7 @@ onMounted(loadData)
 
     <div class="mt-4 mb-8">
       <h1 class="text-2xl font-semibold text-gray-900">Dashboard</h1>
-      <p class="mt-1 text-sm text-gray-500">Resumen general del sistema.</p>
+      <p class="mt-1 text-sm text-gray-500">Resumen general.</p>
     </div>
 
     <BaseLoader v-if="loading" text="Cargando resumen..." />
