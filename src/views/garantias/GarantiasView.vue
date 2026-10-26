@@ -97,12 +97,22 @@ const ventaOptions = computed(() => buildVentaOptions([
     : []),
 ]))
 
+const variantesVencidas = computed(() =>
+  soldVariants.value.filter((item) =>
+    item.garantiaFechaVencimiento &&
+    new Date(item.garantiaFechaVencimiento).getTime() < Date.now(),
+  ),
+)
+
 const variantOptions = computed(() =>
   soldVariants.value
-    .filter((item) => !item.garantiaConocida || Number(item.garantiaMeses ?? 0) > 0)
+    .filter((item) =>
+      (!item.garantiaConocida || Number(item.garantiaMeses ?? 0) > 0) &&
+      !variantesVencidas.value.some((vencida) => vencida.value === item.value),
+    )
     .map((item) => ({
       label: item.garantiaConocida
-        ? `${item.label} · Garantía: ${item.garantiaMeses} meses`
+        ? `${item.label} · Garantía: ${item.garantiaMeses} meses${item.garantiaFechaVencimiento ? ` · Vence: ${formatDate(item.garantiaFechaVencimiento)}` : ''}${!item.garantiaPlazoHistorico ? ' · Plazo histórico no registrado' : ''}`
         : `${item.label} · Se validará la garantía al registrar`,
       value: item.value,
     })),
@@ -594,6 +604,9 @@ onMounted(loadData)
             placeholder="Selecciona el producto"
             required
           />
+          <p v-if="variantesVencidas.length" class="text-xs text-amber-700" role="status">
+            {{ variantesVencidas.length }} artículo(s) con garantía vencida no pueden seleccionarse.
+          </p>
 
           <BaseInput
             v-model="form.cantidad"

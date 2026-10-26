@@ -18,6 +18,8 @@ export interface SoldVariantOption {
   cantidadDisponible: number
   garantiaMeses: number | null
   garantiaConocida: boolean
+  garantiaFechaVencimiento?: string | null
+  garantiaPlazoHistorico?: boolean
 }
 
 export interface VentaCatalog {
@@ -47,15 +49,20 @@ export async function loadSoldVariantOptions(
   const opciones = await Promise.all(detalle.productos
     .filter((linea) => linea.cantidadDisponible > 0)
     .map(async (linea) => {
-      const variante = await getVariante(linea.varianteId).catch(() => null)
+      // El detalle conserva el plazo original; para APIs anteriores mantenemos fallback.
+      const variante = linea.garantiaMeses === undefined
+        ? await getVariante(linea.varianteId).catch(() => null)
+        : null
       return {
         value: linea.varianteId,
         detalleVentaId: linea.detalleId,
         label: `${linea.producto} - ${linea.variante} · ${linea.cantidadDisponible} disponibles`,
         cantidadVendida: linea.cantidad,
         cantidadDisponible: linea.cantidadDisponible,
-        garantiaMeses: variante?.garantiaMeses ?? null,
-        garantiaConocida: Boolean(variante),
+        garantiaMeses: linea.garantiaMeses === undefined ? (variante?.garantiaMeses ?? null) : linea.garantiaMeses,
+        garantiaConocida: linea.garantiaMeses !== undefined || Boolean(variante),
+        garantiaFechaVencimiento: linea.garantiaFechaVencimiento ?? null,
+        garantiaPlazoHistorico: linea.garantiaPlazoHistorico ?? false,
       }
     }))
 

@@ -37,6 +37,7 @@ const form = reactive<{
   precioMayoreo: CampoNumero
   stockInicial: CampoNumero
   stockMinimo: CampoNumero
+  garantiaMeses: CampoNumero
 }>({
   nombre: props.articulo?.nombreMostrar ?? '',
   categoriaId: props.articulo?.categoriaId ?? '',
@@ -47,6 +48,7 @@ const form = reactive<{
   precioMayoreo: props.articulo?.precioMayoreo ?? 0,
   stockInicial: 0,
   stockMinimo: props.articulo?.stockMinimo ?? 0,
+  garantiaMeses: props.articulo?.garantiaMeses ?? '',
 })
 
 const formError = ref('')
@@ -269,6 +271,10 @@ function submitForm() {
     formError.value = 'La existencia inicial y la mínima deben ser números enteros no negativos (existencia inicial máxima: 10,000).'
     return
   }
+  if (form.garantiaMeses !== '' && (!/^\d+$/.test(String(form.garantiaMeses)) || !Number.isSafeInteger(Number(form.garantiaMeses)))) {
+    formError.value = 'Los meses de garantía deben ser un número entero mayor o igual a cero.'
+    return
+  }
   detenerDictado()
   stopScanner()
   emit('submit', {
@@ -281,6 +287,7 @@ function submitForm() {
     precioMayoreo: mayoreoNumero.value,
     stockInicial,
     stockMinimo,
+    garantiaMeses: form.garantiaMeses === '' ? null : Number(form.garantiaMeses),
   })
 }
 </script>
@@ -349,6 +356,7 @@ function submitForm() {
       <BaseInput v-model="form.precioVenta" label="Precio venta" type="number" min="0" step="0.01" :disabled="saving" required />
       <BaseInput v-model="form.precioMayoreo" label="Mayoreo (opcional)" type="number" min="0" step="0.01" :disabled="saving" />
       <BaseInput v-model="form.stockMinimo" label="Existencia mínima (opcional)" type="number" min="0" step="1" :disabled="saving" />
+      <BaseInput v-model="form.garantiaMeses" label="Garantía (meses, opcional)" type="number" min="0" step="1" placeholder="Ej. 12" :disabled="saving" />
       <BaseInput v-if="!articulo" v-model="form.stockInicial" label="Existencia inicial (opcional)" type="number" min="0" max="10000" step="1" :disabled="saving" />
     </div>
 

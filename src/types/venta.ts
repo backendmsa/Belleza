@@ -38,6 +38,9 @@ export interface DetalleVentaProducto {
   variante: string
   cantidad: number
   cantidadDisponible: number
+  garantiaMeses?: number | null
+  garantiaFechaVencimiento?: string | null
+  garantiaPlazoHistorico?: boolean
   precioUnitario: number
   descuento: number
   subtotal: number

@@ -46,6 +46,9 @@ interface VentaDetalleApi {
     variante: string
     cantidad: number
     cantidad_disponible: number
+    garantia_meses?: number | null
+    garantia_fecha_vencimiento?: string | null
+    garantia_plazo_historico?: boolean
     precio_unitario: string | number
     descuento?: string | number
     subtotal: string | number
@@ -140,6 +143,9 @@ export async function getVenta(id: string): Promise<VentaDetalle> {
       variante: product.variante,
       cantidad: Number(product.cantidad),
       cantidadDisponible: Number(product.cantidad_disponible ?? product.cantidad),
+      garantiaMeses: product.garantia_meses === undefined ? undefined : (product.garantia_meses == null ? null : Number(product.garantia_meses)),
+      garantiaFechaVencimiento: product.garantia_fecha_vencimiento ?? null,
+      garantiaPlazoHistorico: product.garantia_plazo_historico ?? false,
       precioUnitario: Number(product.precio_unitario),
       descuento: Number(product.descuento ?? 0),
       subtotal: Number(product.subtotal),

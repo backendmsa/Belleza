@@ -10,7 +10,9 @@ export interface Garantia {
   variante: string
   varianteNueva: string | null
   cantidad: number
-  garantiaMeses: number
+  garantiaMeses: number | null
+  fechaVencimiento: string | null
+  garantiaPlazoHistorico: boolean
   motivo: string
   estado: EstadoGarantia
   resolucion: ResolucionGarantia | null

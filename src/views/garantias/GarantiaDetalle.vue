@@ -56,6 +56,23 @@ function statusFor(estado: Garantia['estado']) {
       </dd>
     </div>
 
+    <div v-if="garantia.garantiaMeses != null">
+      <dt class="text-xs uppercase text-gray-400">Plazo de garantía</dt>
+      <dd class="mt-1 text-gray-700">{{ garantia.garantiaMeses }} meses</dd>
+    </div>
+
+    <div v-if="garantia.fechaVencimiento">
+      <dt class="text-xs uppercase text-gray-400">Vencimiento de cobertura</dt>
+      <dd class="mt-1 text-gray-700">
+        {{ formatDate(garantia.fechaVencimiento) }} ·
+        {{ new Date(garantia.fechaVencimiento).getTime() < Date.now() ? 'Vencida' : 'Vigente' }}
+      </dd>
+    </div>
+
+    <p v-if="!garantia.garantiaPlazoHistorico" class="text-xs text-amber-700 sm:col-span-2">
+      Venta anterior: el plazo original no quedó guardado al vender. Se usa la configuración actual del artículo como referencia.
+    </p>
+
     <div class="sm:col-span-2">
       <dt class="text-xs uppercase text-gray-400">Motivo</dt>
       <dd class="mt-1 break-words text-gray-700">{{ garantia.motivo }}</dd>

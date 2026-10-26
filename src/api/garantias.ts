@@ -17,7 +17,9 @@ interface GarantiaApi {
   variante: string
   variante_nueva?: string | null
   cantidad: number
-  garantia_meses: number
+  garantia_meses: number | null
+  fecha_vencimiento?: string | null
+  garantia_plazo_historico?: boolean
   motivo: string
   estado: Garantia['estado']
   resolucion?: ResolucionGarantia | null
@@ -35,7 +37,9 @@ function mapGarantia(item: GarantiaApi): Garantia {
     variante: item.variante,
     varianteNueva: item.variante_nueva ?? null,
     cantidad: Number(item.cantidad),
-    garantiaMeses: Number(item.garantia_meses ?? 0),
+    garantiaMeses: item.garantia_meses == null ? null : Number(item.garantia_meses),
+    fechaVencimiento: item.fecha_vencimiento ?? null,
+    garantiaPlazoHistorico: item.garantia_plazo_historico ?? false,
     motivo: item.motivo,
     estado: item.estado,
     resolucion: item.resolucion ?? null,

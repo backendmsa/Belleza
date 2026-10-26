@@ -22,6 +22,7 @@ export interface Articulo {
   precioMayoreo: number
   stock: number
   stockMinimo: number
+  garantiaMeses: number | null
   activo: boolean
   advertenciasPrecios: AdvertenciaPrecio[]
 }
@@ -36,6 +37,7 @@ export interface ArticuloFormValues {
   precioMayoreo: number
   stockInicial: number
   stockMinimo: number
+  garantiaMeses: number | null
 }
 
 interface ArticuloApi {
@@ -52,6 +54,7 @@ interface ArticuloApi {
   precio_mayoreo: string | number
   stock: number
   stock_minimo: number
+  garantia_meses: number | null
   activo: boolean
   advertencias_precios?: AdvertenciaPrecio[]
 }
@@ -75,6 +78,7 @@ function mapArticulo(item: ArticuloApi): Articulo {
     precioMayoreo: Number(item.precio_mayoreo),
     stock: Number(item.stock),
     stockMinimo: Number(item.stock_minimo),
+    garantiaMeses: item.garantia_meses == null ? null : Number(item.garantia_meses),
     activo: item.activo,
     advertenciasPrecios: item.advertencias_precios ?? [],
   }
@@ -107,6 +111,7 @@ export async function registrarArticulo(valores: ArticuloFormValues): Promise<Ar
     precio_mayoreo: valores.precioMayoreo,
     stock: valores.stockInicial,
     stock_minimo: valores.stockMinimo,
+    garantia_meses: valores.garantiaMeses,
   })
   return mapArticulo(unwrapData<ArticuloApi>(data))
 }
@@ -139,6 +144,9 @@ export async function editarArticulo(
   }
   if (valores.stockMinimo !== articulo.stockMinimo) {
     cambios.stock_minimo = valores.stockMinimo
+  }
+  if (valores.garantiaMeses !== articulo.garantiaMeses) {
+    cambios.garantia_meses = valores.garantiaMeses
   }
 
   // stock y producto_id nunca se actualizan desde Gestión.
