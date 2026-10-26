@@ -22,8 +22,11 @@ export interface MovimientoVista extends MovimientoInventario {
 function mapCatalogVariant(item: Variante): CatalogVariant {
   return {
     id: item.id,
-    producto: item.productoNombre,
-    variante: item.nombre,
+    producto: item.nombreMostrar === `${item.productoNombre} - ${item.nombre}`
+      ? item.productoNombre : item.nombreMostrar,
+    variante: item.nombreMostrar === `${item.productoNombre} - ${item.nombre}`
+      ? item.nombre : '',
+
     sku: item.sku,
     codigoBarras: item.codigoBarras,
     stock: item.stock,
@@ -47,7 +50,8 @@ export async function enrichMovements(movimientos: MovimientoInventario[]): Prom
     const variant = item.varianteId ? byId.get(item.varianteId) : undefined
     return {
       ...item,
-      producto: item.productoNombre ?? variant?.producto ?? 'Artículo no identificado',
+      producto: variant?.producto ?? item.productoNombre ?? 'Artículo no identificado',
+      variante: variant?.variante ?? item.variante,
       sku: item.sku ?? variant?.sku ?? '—',
     }
   })

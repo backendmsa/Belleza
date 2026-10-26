@@ -19,6 +19,7 @@
     "@vueuse/core": "^14.3.0",
     "@zxing/browser": "^0.2.1",
     "axios": "^1.18.1",
+    "exceljs": "^4.4.0",
     "pinia": "^4.0.2",
     "pinia-plugin-persistedstate": "^4.7.1",
     "sweetalert2": "^11.26.25",

@@ -27,6 +27,12 @@ export interface CorteCaja {
   numeroVentas: number
   totalReembolsos: number
   efectivoEsperadoActual: number
+  totalVentasEfectivo: number
+  totalVentasTarjeta: number
+  totalVentasTransferencia: number
+  totalReembolsosEfectivo: number
+  totalReembolsosTarjeta: number
+  totalReembolsosTransferencia: number
 }
 
 export interface AbrirCajaPayload {

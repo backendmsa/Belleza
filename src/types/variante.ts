@@ -2,6 +2,7 @@ export interface Variante {
   id: string
   productoId: string
   productoNombre: string
+  nombreMostrar: string
   nombre: string
   sku: string
   codigoBarras: string

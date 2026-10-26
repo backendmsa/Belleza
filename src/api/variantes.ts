@@ -11,6 +11,7 @@ interface VarianteApi {
   producto: string
   producto_nombre?: string
   productoNombre?: string
+  nombre_mostrar?: string
   codigo_barras: string | null
   sku: string | null
   nombre: string
@@ -31,6 +32,7 @@ function mapVariante(item: VarianteApi): Variante {
     id: item.id,
     productoId: item.producto,
     productoNombre: item.producto_nombre ?? item.productoNombre ?? '',
+    nombreMostrar: item.nombre_mostrar ?? item.nombre,
     codigoBarras: item.codigo_barras ?? '',
     sku: item.sku ?? '',
     nombre: item.nombre,

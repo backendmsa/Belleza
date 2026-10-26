@@ -31,6 +31,12 @@ interface CorteApi {
   numero_ventas?: number
   total_reembolsos?: string | number
   efectivo_esperado_actual?: string | number
+  total_ventas_efectivo?: string | number
+  total_ventas_tarjeta?: string | number
+  total_ventas_transferencia?: string | number
+  total_reembolsos_efectivo?: string | number
+  total_reembolsos_tarjeta?: string | number
+  total_reembolsos_transferencia?: string | number
 }
 
 function mapCaja(item: CajaApi): Caja {
@@ -67,6 +73,12 @@ function mapCorte(item: CorteApi): CorteCaja {
     numeroVentas: Number(item.numero_ventas ?? 0),
     totalReembolsos: Number(item.total_reembolsos ?? 0),
     efectivoEsperadoActual: Number(item.efectivo_esperado_actual ?? item.efectivo_inicial ?? 0),
+    totalVentasEfectivo: Number(item.total_ventas_efectivo ?? 0),
+    totalVentasTarjeta: Number(item.total_ventas_tarjeta ?? 0),
+    totalVentasTransferencia: Number(item.total_ventas_transferencia ?? 0),
+    totalReembolsosEfectivo: Number(item.total_reembolsos_efectivo ?? 0),
+    totalReembolsosTarjeta: Number(item.total_reembolsos_tarjeta ?? 0),
+    totalReembolsosTransferencia: Number(item.total_reembolsos_transferencia ?? 0),
   }
 }
 
@@ -126,6 +138,15 @@ export async function getCorteActivo(cajaId: string): Promise<CorteCaja> {
     params: { caja_id: cajaId },
   })
   return mapCorte(data.data)
+}
+
+// La consulta individual aplica los mismos permisos que el historial.
+export async function getCortePorId(corteId: string): Promise<CorteCaja> {
+  // Este endpoint devuelve CorteApi directamente, sin envoltura { data: ... }.
+  const { data } = await api.get<CorteApi>(
+    `/caja/${encodeURIComponent(corteId)}/`,
+  )
+  return mapCorte(data)
 }
 
 export async function getHistorialCortes(cajaId: string): Promise<CorteCaja[]> {

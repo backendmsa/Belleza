@@ -169,8 +169,10 @@ const filteredVariants = computed(() => variantes.value)
 function mapSaleVariant(item: Awaited<ReturnType<typeof getVariantesPage>>['items'][number]): VarianteVenta {
   return {
     id: item.id,
-    producto: item.productoNombre,
-    variante: item.nombre,
+    producto: item.nombreMostrar === `${item.productoNombre} - ${item.nombre}`
+      ? item.productoNombre : item.nombreMostrar,
+    variante: item.nombreMostrar === `${item.productoNombre} - ${item.nombre}`
+      ? item.nombre : '',
     sku: item.sku,
     codigoBarras: item.codigoBarras,
     stock: item.stock,
@@ -290,8 +292,10 @@ async function scanCode() {
 
     const variante: VarianteVenta = {
       id: item.id,
-      producto: item.productoNombre,
-      variante: item.nombre,
+      producto: item.nombreMostrar === `${item.productoNombre} - ${item.nombre}`
+        ? item.productoNombre : item.nombreMostrar,
+      variante: item.nombreMostrar === `${item.productoNombre} - ${item.nombre}`
+        ? item.nombre : '',
       sku: item.sku,
       codigoBarras: item.codigoBarras,
       stock: item.stock,
@@ -310,7 +314,7 @@ async function scanCode() {
     scannerCode.value = ''
 
     scannerMessage.value =
-      `${variante.producto} - ${variante.variante} agregado al carrito.`
+      `${variante.producto}${variante.variante ? ` - ${variante.variante}` : ""} agregado al carrito.`
   } catch (error) {
     scannerMessage.value = getFriendlyError(
       error,

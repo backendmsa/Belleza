@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { ArrowDownTrayIcon } from '@heroicons/vue/24/outline'
+import { ArrowDownTrayIcon, EyeIcon } from '@heroicons/vue/24/outline'
 
 import AppBreadcrumb from '@/components/layout/AppBreadcrumb.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
@@ -8,8 +8,10 @@ import BaseInput from '@/components/ui/BaseInput.vue'
 import BaseLoader from '@/components/ui/BaseLoader.vue'
 import BasePagination from '@/components/ui/BasePagination.vue'
 import BaseSelect from '@/components/ui/BaseSelect.vue'
+import DetalleCorteModal from '@/components/cajas/DetalleCorteModal.vue'
 
 import { getReporte, getReportePage } from '@/api/reportes'
+import { getCortePorId } from '@/api/cajas'
 import { getFriendlyError } from '@/utils/apiError'
 import {
   formatReportCell,
@@ -22,6 +24,7 @@ import { showError } from '@/utils/notifications'
 import { useAuthStore } from '@/stores/auth'
 
 import type { ReporteClave, ReporteFila } from '@/types/reporte'
+import type { CorteCaja } from '@/types/caja'
 
 function toInputDate(date: Date) {
   const year = date.getFullYear()
@@ -42,6 +45,9 @@ const endDate = ref(toInputDate(today))
 const rows = ref<ReporteFila[]>([])
 const loading = ref(false)
 const exporting = ref(false)
+const detalleOpen = ref(false)
+const detalleLoading = ref(false)
+const detalleCorte = ref<CorteCaja | null>(null)
 const generated = ref(false)
 const page = ref(1)
 const totalPages = ref(1)
@@ -72,6 +78,8 @@ const reportUsesDates = computed(
 )
 
 watch(reportType, () => {
+  detalleOpen.value = false
+  detalleCorte.value = null
   rows.value = []
   generated.value = false
   page.value = 1
@@ -80,7 +88,15 @@ watch(reportType, () => {
 })
 
 // Los IDs del backend se conservan en cada fila, pero no son columnas públicas.
-const columns = computed(() => getVisibleReportFields(rows.value))
+const columns = computed(() => {
+  const fields = getVisibleReportFields(rows.value)
+  if (reportType.value !== 'cortes') return fields
+  // Tabla breve. El resto del desglose se consulta con «Ver corte».
+  return [
+    'caja', 'usuario', 'fecha_inicio', 'fecha_fin',
+    'total_ventas', 'efectivo_esperado_actual', 'efectivo_final', 'diferencia',
+  ].filter((field) => fields.includes(field))
+})
 
 async function generateReport(targetPage = 1) {
   if (
@@ -127,7 +143,7 @@ function goToPage(targetPage: number) {
   void generateReport(targetPage)
 }
 
-async function exportCsv() {
+async function exportExcel() {
   if (!totalCount.value) return
 
   exporting.value = true
@@ -143,31 +159,83 @@ async function exportCsv() {
     const exportRows = await getReporte(reportType.value, params)
     if (!exportRows.length) return
 
+    // Importación diferida: ExcelJS solo se descarga cuando se exporta.
+    const ExcelJS = (await import('exceljs')).default
+    const workbook = new ExcelJS.Workbook()
+    const worksheet = workbook.addWorksheet('Reporte')
     const headers = getVisibleReportFields(exportRows)
-    const csvCell = (value: string) => `"${value.replaceAll('"', '""')}"`
-    const content = [
-      headers.map((header) => csvCell(getReportLabel(header))).join(','),
-      ...exportRows.map((row) =>
-        headers.map((header) => csvCell(formatReportCell(header, row[header]))).join(','),
-      ),
-    ].join('\r\n')
+    const labels = headers.map(getReportLabel)
 
-    // BOM: Excel muestra correctamente las tildes y la letra ñ.
-    const blob = new Blob(['\uFEFF', content], {
-      type: 'text/csv;charset=utf-8;',
+    worksheet.addRow(labels)
+    worksheet.views = [{ state: 'frozen', ySplit: 1 }]
+    worksheet.autoFilter = {
+      from: { row: 1, column: 1 },
+      to: { row: 1, column: headers.length },
+    }
+
+    for (const item of exportRows) {
+      worksheet.addRow(headers.map((field) => {
+        const value = item[field]
+        if (isMoneyReportField(field) && value !== null && value !== undefined && value !== '') {
+          const amount = Number(value)
+          if (Number.isFinite(amount)) return amount
+        }
+        return formatReportCell(field, value)
+      }))
+    }
+
+    headers.forEach((field, index) => {
+      const longest = Math.max(
+        labels[index]?.length ?? 0,
+        ...exportRows.map((item) => formatReportCell(field, item[field]).length),
+      )
+      const column = worksheet.getColumn(index + 1)
+      column.width = Math.min(48, Math.max(16, longest + 3))
+      if (isMoneyReportField(field)) {
+        column.numFmt = '"$"#,##0.00;[Red]("$"#,##0.00)'
+      }
+    })
+
+    worksheet.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } }
+    worksheet.getRow(1).fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FF8E4A60' },
+    }
+    worksheet.getRow(1).height = 25
+
+    const buffer = await workbook.xlsx.writeBuffer()
+    const blob = new Blob([new Uint8Array(buffer)], {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     })
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
-
     link.href = url
-    link.download = `reporte-${reportType.value}.csv`
+    link.download = `reporte-${reportType.value}.xlsx`
     link.click()
-
     URL.revokeObjectURL(url)
   } catch (error) {
-    await showError(getFriendlyError(error, 'No fue posible exportar el reporte.'))
+    await showError(getFriendlyError(error, 'No fue posible exportar el reporte Excel.'))
   } finally {
     exporting.value = false
+  }
+}
+
+async function verCorte(row: ReporteFila) {
+  if (typeof row.id !== 'string') {
+    await showError('Este corte no tiene un identificador válido.')
+    return
+  }
+
+  detalleLoading.value = true
+  try {
+    // El servidor verifica permisos también al consultar un corte individual.
+    detalleCorte.value = await getCortePorId(row.id)
+    detalleOpen.value = true
+  } catch (error) {
+    await showError(getFriendlyError(error, 'No fue posible consultar ese corte.'))
+  } finally {
+    detalleLoading.value = false
   }
 }
 </script>
@@ -214,9 +282,9 @@ async function exportCsv() {
       class="mt-6 overflow-hidden rounded-2xl border border-[#ECECEC] bg-white"
     >
       <div class="flex justify-end border-b border-gray-100 p-4">
-        <BaseButton variant="secondary" :loading="exporting" @click="exportCsv">
+        <BaseButton variant="secondary" :loading="exporting" @click="exportExcel">
           <ArrowDownTrayIcon class="h-5 w-5" />
-          Exportar
+          Exportar Excel
         </BaseButton>
       </div>
 
@@ -232,6 +300,7 @@ async function exportCsv() {
               >
                 {{ getReportLabel(column) }}
               </th>
+              <th v-if="reportType === 'cortes'" class="px-5 py-4">Acciones</th>
             </tr>
           </thead>
 
@@ -249,11 +318,22 @@ async function exportCsv() {
               >
                 {{ formatReportCell(column, row[column]) }}
               </td>
+              <td v-if="reportType === 'cortes'" class="px-5 py-4" data-label="Acciones">
+                <BaseButton variant="secondary" :disabled="detalleLoading" @click="verCorte(row)">
+                  <EyeIcon class="h-4 w-4" /> Ver corte
+                </BaseButton>
+              </td>
             </tr>
           </tbody>
         </table>
       </div>
     </div>
+
+    <DetalleCorteModal
+      :open="detalleOpen"
+      :corte="detalleCorte"
+      @close="detalleOpen = false"
+    />
 
     <div v-if="generated && totalPages > 1" class="mt-4">
       <BasePagination :page="page" :total-pages="totalPages" @change="goToPage" />

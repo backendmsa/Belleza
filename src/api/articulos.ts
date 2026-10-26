@@ -117,7 +117,9 @@ export async function editarArticulo(
   valores: ArticuloFormValues,
 ): Promise<{ cambiado: boolean; advertencias: AdvertenciaPrecio[] }> {
   const cambios: Record<string, string | number | null> = {}
-  if (valores.nombre.trim() !== articulo.nombre) cambios.nombre = valores.nombre.trim()
+  if (valores.nombre.trim() !== articulo.nombreMostrar.trim()) {
+    cambios.nombre_completo = valores.nombre.trim()
+  }
   const categoriaAnterior = articulo.categoriaNombre.trim().toUpperCase() === 'SIN CLASIFICAR'
     ? ''
     : articulo.categoriaId

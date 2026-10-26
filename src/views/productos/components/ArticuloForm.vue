@@ -38,7 +38,7 @@ const form = reactive<{
   stockInicial: CampoNumero
   stockMinimo: CampoNumero
 }>({
-  nombre: props.articulo?.nombre ?? '',
+  nombre: props.articulo?.nombreMostrar ?? '',
   categoriaId: props.articulo?.categoriaId ?? '',
   sku: props.articulo?.sku ?? '',
   codigoBarras: props.articulo?.codigoBarras ?? '',
@@ -240,7 +240,7 @@ function submitForm() {
   if (props.saving) return
   formError.value = ''
   const nombre = form.nombre.trim()
-  if (!nombre || nombre.length > 150) {
+  if (!nombre || (nombre.length > 150 && nombre !== props.articulo?.nombreMostrar)) {
     formError.value = 'El nombre del artículo es obligatorio (máximo 150 caracteres).'
     return
   }
@@ -307,8 +307,8 @@ function submitForm() {
         {{ dictando ? 'Detener dictado' : 'Dictar nombre' }}
       </button>
       <p v-if="mensajeDictado" class="text-xs text-gray-600" role="status">{{ mensajeDictado }}</p>
-      <p v-if="articulo && articulo.nombreMostrar !== articulo.nombre" class="text-xs text-gray-600">
-        Solo cambias esta presentación; las demás quedan igual.
+      <p v-if="articulo" class="text-xs text-gray-600">
+        Editas el nombre completo de este artículo. Las demás presentaciones no cambian.
       </p>
     </div>
 

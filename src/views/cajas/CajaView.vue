@@ -7,8 +7,10 @@ import {
   ClockIcon,
   LockClosedIcon,
   LockOpenIcon,
+  EyeIcon,
   NoSymbolIcon,
   PlusIcon,
+  PrinterIcon,
 } from '@heroicons/vue/24/outline'
 
 import AppBreadcrumb from '@/components/layout/AppBreadcrumb.vue'
@@ -18,6 +20,7 @@ import BaseLoader from '@/components/ui/BaseLoader.vue'
 import BasePagination from '@/components/ui/BasePagination.vue'
 import BaseDateRangeFilter from '@/components/ui/BaseDateRangeFilter.vue'
 import BaseModal from '@/components/ui/BaseModal.vue'
+import DetalleCorteModal from '@/components/cajas/DetalleCorteModal.vue'
 import StatusChip from '@/components/common/StatusChip.vue'
 
 import {
@@ -30,6 +33,7 @@ import {
   getCajasActivas,
   updateCaja,
   getCorteActivo,
+  getCortePorId,
   getHistorialCortes,
 } from '@/api/cajas'
 import { formatCurrency } from '@/utils/formatCurrency'
@@ -49,6 +53,9 @@ const authStore = useAuthStore()
 const cajas = ref<Caja[]>([])
 const cortesActivos = ref<Record<string, CorteCaja>>({})
 const historial = ref<CorteCaja[]>([])
+const detalleCorte = ref<CorteCaja | null>(null)
+const detalleCorteOpen = ref(false)
+const detalleCorteLoading = ref(false)
 const {
   dateFrom: historyDateFrom,
   dateTo: historyDateTo,
@@ -67,12 +74,39 @@ const selectedCaja = ref<Caja | null>(null)
 const loading = ref(false)
 const saving = ref(false)
 const modalOpen = ref(false)
+const cierreRealizadoOpen = ref(false)
+const cierreRealizado = ref<{ caja: string; efectivoContado: number; diferencia: number } | null>(null)
 const modalMode = ref<ModalMode>('crear')
+const resumenCierre = ref<CorteCaja | null>(null)
+const cargandoResumenCierre = ref(false)
 
 const form = reactive({
   nombre: '',
   efectivo: '',
 })
+
+const efectivoContadoValido = computed(() => {
+  const valor = form.efectivo.trim()
+  if (!/^\d+(\.\d{1,2})?$/.test(valor)) return null
+  const cantidad = Number(valor)
+  if (!Number.isFinite(cantidad) || cantidad < 0 || cantidad > 99999999.99) return null
+  return Math.round(cantidad * 100) / 100
+})
+
+const diferenciaPrevia = computed(() => {
+  if (!resumenCierre.value || efectivoContadoValido.value === null) return null
+  return Math.round((efectivoContadoValido.value - resumenCierre.value.efectivoEsperadoActual) * 100) / 100
+})
+
+function resumenCambio(anterior: CorteCaja, actual: CorteCaja): boolean {
+  if (anterior.id !== actual.id) return true
+  const campos: (keyof CorteCaja)[] = [
+    'totalVentas', 'totalReembolsos', 'numeroVentas', 'efectivoEsperadoActual',
+    'totalVentasEfectivo', 'totalVentasTarjeta', 'totalVentasTransferencia',
+    'totalReembolsosEfectivo', 'totalReembolsosTarjeta', 'totalReembolsosTransferencia',
+  ]
+  return campos.some((campo) => anterior[campo] !== actual[campo])
+}
 
 const modalTitle = computed(() => {
   if (modalMode.value === 'crear') return 'Nueva caja'
@@ -144,12 +178,37 @@ function openBox(caja: Caja) {
   modalOpen.value = true
 }
 
-function closeBox(caja: Caja) {
-  if (!caja.esMia) return
-  selectedCaja.value = caja
-  form.efectivo = ''
-  modalMode.value = 'cerrar'
-  modalOpen.value = true
+async function closeBox(caja: Caja) {
+  if (!caja.esMia || cargandoResumenCierre.value) return
+  cargandoResumenCierre.value = true
+  resumenCierre.value = null
+  try {
+    const corte = await getCorteActivo(caja.id)
+    selectedCaja.value = caja
+    cortesActivos.value = { ...cortesActivos.value, [caja.id]: corte }
+    resumenCierre.value = corte
+    form.efectivo = ''
+    modalMode.value = 'cerrar'
+    modalOpen.value = true
+  } catch (error) {
+    await showError(getFriendlyError(error, 'No fue posible consultar el corte actual.'))
+  } finally {
+    cargandoResumenCierre.value = false
+  }
+}
+
+async function verDetalleCorte(corte: CorteCaja) {
+  if (detalleCorteLoading.value) return
+  detalleCorteLoading.value = true
+  try {
+    // Consulta individual con control de acceso en el backend.
+    detalleCorte.value = await getCortePorId(corte.id)
+    detalleCorteOpen.value = true
+  } catch (error) {
+    await showError(getFriendlyError(error, 'No tienes acceso a este corte o no existe.'))
+  } finally {
+    detalleCorteLoading.value = false
+  }
 }
 
 async function viewHistory(caja: Caja) {
@@ -203,31 +262,44 @@ async function submitModal() {
 
     if (
       (modalMode.value === 'abrir' || modalMode.value === 'cerrar') &&
-      (form.efectivo.trim() === '' ||
-        !Number.isFinite(Number(form.efectivo)) ||
-        Number(form.efectivo) < 0)
+      efectivoContadoValido.value === null
     ) {
-      await showError('Ingresa una cantidad de efectivo válida.')
+      await showError('Ingresa un importe válido, no negativo y con máximo dos decimales.')
       return
     }
 
     if (modalMode.value === 'abrir' && selectedCaja.value) {
       const response = await abrirCaja({
         caja_id: selectedCaja.value.id,
-        efectivo_inicial: Number(form.efectivo),
+        efectivo_inicial: efectivoContadoValido.value!,
       })
       await showSuccess(response.message ?? 'Caja abierta correctamente.')
     }
 
     if (modalMode.value === 'cerrar' && selectedCaja.value) {
+      const actual = await getCorteActivo(selectedCaja.value.id)
+      if (!resumenCierre.value || resumenCambio(resumenCierre.value, actual)) {
+        resumenCierre.value = actual
+        cortesActivos.value = { ...cortesActivos.value, [selectedCaja.value.id]: actual }
+        await showError('Hubo cambios en el turno desde que abriste el resumen. Revisa los importes y confirma nuevamente.')
+        return
+      }
       const response = await cerrarCaja({
         caja_id: selectedCaja.value.id,
-        efectivo_final: Number(form.efectivo),
+        efectivo_final: efectivoContadoValido.value!,
       })
 
-      await showSuccess(
-        `${response.message ?? 'Caja cerrada correctamente.'} Diferencia: ${formatCurrency(response.data.diferencia)}.`,
-      )
+      // Mostrar el botón de ticket únicamente tras el POST de cierre exitoso.
+      // El botón es visual: no imprime, descarga ni solicita datos adicionales.
+      cierreRealizado.value = {
+        caja: selectedCaja.value.nombre,
+        efectivoContado: response.data.efectivoContado,
+        diferencia: response.data.diferencia,
+      }
+      modalOpen.value = false
+      cierreRealizadoOpen.value = true
+      await loadData()
+      return
     }
 
     modalOpen.value = false
@@ -304,6 +376,7 @@ onMounted(loadData)
             <BaseButton
               v-else-if="caja.esMia && cortesActivos[caja.id]"
               variant="danger"
+              :disabled="cargandoResumenCierre || saving"
               @click="closeBox(caja)"
             >
               <LockClosedIcon class="h-4 w-4" />
@@ -417,6 +490,7 @@ onMounted(loadData)
                 <th class="px-5 py-4">Inicial</th>
                 <th class="px-5 py-4">Final</th>
                 <th class="px-5 py-4">Diferencia</th>
+                <th class="px-5 py-4">Acciones</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-gray-100">
@@ -436,10 +510,15 @@ onMounted(loadData)
                 <td data-label="Diferencia" class="px-5 py-4 font-medium text-gray-900">
                   {{ item.diferencia === null ? '—' : formatCurrency(item.diferencia) }}
                 </td>
+                <td data-label="Acciones" class="px-5 py-4">
+                  <BaseButton variant="secondary" :disabled="detalleCorteLoading" @click="verDetalleCorte(item)">
+                    <EyeIcon class="h-4 w-4" /> Ver corte
+                  </BaseButton>
+                </td>
               </tr>
 
               <tr v-if="!filteredHistory.length">
-                <td colspan="5" class="px-6 py-10 text-center text-gray-500">
+                <td colspan="6" class="px-6 py-10 text-center text-gray-500">
                   No hay cortes registrados.
                 </td>
               </tr>
@@ -457,7 +536,7 @@ onMounted(loadData)
       </div>
     </div>
 
-    <BaseModal :open="modalOpen" :title="modalTitle" max-width="md" @close="modalOpen = false">
+    <BaseModal :open="modalOpen" :title="modalTitle" :max-width="modalMode === 'cerrar' ? 'lg' : 'md'" @close="modalOpen = false">
       <form class="space-y-5" @submit.prevent="submitModal">
         <BaseInput
           v-if="modalMode === 'crear' || modalMode === 'editar'"
@@ -467,8 +546,41 @@ onMounted(loadData)
           required
         />
 
+        <div v-if="modalMode === 'cerrar' && resumenCierre" class="space-y-3">
+          <!-- Separar claramente ventas digitales del dinero que hay en el cajón. -->
+          <div class="rounded-xl border border-gray-200 bg-white p-4">
+            <p class="text-xs font-bold uppercase tracking-wide text-gray-500">Ventas de esta caja</p>
+            <div class="mt-3 grid grid-cols-2 gap-y-2 text-sm text-gray-700">
+              <span>Efectivo</span><span class="text-right">{{ formatCurrency(resumenCierre.totalVentasEfectivo) }}</span>
+              <span>Tarjeta</span><span class="text-right">{{ formatCurrency(resumenCierre.totalVentasTarjeta) }}</span>
+              <span>Transferencia</span><span class="text-right">{{ formatCurrency(resumenCierre.totalVentasTransferencia) }}</span>
+            </div>
+            <div class="mt-3 flex items-center justify-between gap-3 border-t border-gray-200 pt-3">
+              <span class="font-semibold text-gray-900">Total vendido <span class="block text-xs font-normal text-gray-500">Todos los pagos</span></span>
+              <span class="text-xl font-bold text-gray-900">{{ formatCurrency(resumenCierre.totalVentas) }}</span>
+            </div>
+            <div v-if="resumenCierre.totalReembolsos > 0" class="mt-2 flex justify-between gap-3 text-xs text-gray-500">
+              <span>Reembolsos (todos los pagos)</span>
+              <span>−{{ formatCurrency(resumenCierre.totalReembolsos) }}</span>
+            </div>
+          </div>
+
+          <div class="rounded-xl border border-rose-200 bg-rose-50/60 p-4">
+            <p class="text-xs font-bold uppercase tracking-wide text-rose-800">Dinero en caja · Solo efectivo</p>
+            <div class="mt-3 grid grid-cols-2 gap-y-2 text-sm text-gray-700">
+              <span>Fondo inicial</span><span class="text-right">{{ formatCurrency(resumenCierre.efectivoInicial) }}</span>
+              <span>+ Ventas en efectivo</span><span class="text-right">{{ formatCurrency(resumenCierre.totalVentasEfectivo) }}</span>
+              <span>− Reembolsos en efectivo</span><span class="text-right">{{ formatCurrency(resumenCierre.totalReembolsosEfectivo) }}</span>
+            </div>
+            <div class="mt-3 flex items-center justify-between gap-3 border-t border-rose-200 pt-3">
+              <span class="font-semibold text-gray-900">Efectivo que debe haber</span>
+              <span class="text-xl font-bold text-gray-900">{{ formatCurrency(resumenCierre.efectivoEsperadoActual) }}</span>
+            </div>
+          </div>
+        </div>
+
         <BaseInput
-          v-else
+          v-if="modalMode === 'abrir' || modalMode === 'cerrar'"
           v-model="form.efectivo"
           type="text"
           inputmode="decimal"
@@ -478,13 +590,68 @@ onMounted(loadData)
           required
         />
 
+        <div v-if="modalMode === 'cerrar' && resumenCierre" class="rounded-xl bg-gray-50 px-4 py-3" aria-live="polite">
+          <div class="flex items-center justify-between gap-3">
+            <span class="text-sm font-semibold text-gray-700">Diferencia de efectivo</span>
+            <span v-if="diferenciaPrevia !== null" :class="['text-lg font-semibold', diferenciaPrevia < 0 ? 'text-red-600' : diferenciaPrevia > 0 ? 'text-amber-700' : 'text-green-700']">
+              {{ diferenciaPrevia > 0 ? '+' : '' }}{{ formatCurrency(diferenciaPrevia) }}
+            </span>
+            <span v-else class="text-sm text-gray-500">Ingresa el efectivo contado</span>
+          </div>
+          <p class="mt-1 text-xs text-gray-500">
+            {{ diferenciaPrevia === null ? 'El valor aparece al capturar el efectivo.' : diferenciaPrevia < 0 ? 'Faltante de efectivo.' : diferenciaPrevia > 0 ? 'Sobrante de efectivo.' : 'Caja cuadrada.' }}
+          </p>
+        </div>
+
         <div
           class="mobile-action-row flex justify-end gap-3 border-t border-gray-100 pt-5 sm:flex-row"
         >
           <BaseButton variant="secondary" @click="modalOpen = false"> Cancelar </BaseButton>
-          <BaseButton type="submit" :loading="saving"> Confirmar </BaseButton>
+          <BaseButton type="submit" :loading="saving" :disabled="modalMode === 'cerrar' && (!resumenCierre || efectivoContadoValido === null)">
+            {{ modalMode === 'cerrar' ? 'Confirmar cierre' : 'Confirmar' }}
+          </BaseButton>
         </div>
       </form>
     </BaseModal>
+
+    <!-- Se muestra únicamente después de confirmar y guardar el cierre en el backend. -->
+    <BaseModal
+      :open="cierreRealizadoOpen"
+      title="Caja cerrada correctamente"
+      max-width="md"
+      @close="cierreRealizadoOpen = false"
+    >
+      <div v-if="cierreRealizado" class="space-y-4">
+        <div class="flex items-center gap-2">
+          <CheckCircleIcon class="h-6 w-6 text-green-600" />
+          <p class="font-semibold text-gray-900">{{ cierreRealizado.caja }}</p>
+        </div>
+        <div class="space-y-3 rounded-xl bg-gray-50 p-4 text-sm">
+          <div class="flex items-center justify-between gap-3">
+            <span>Efectivo contado</span>
+            <strong>{{ formatCurrency(cierreRealizado.efectivoContado) }}</strong>
+          </div>
+          <div class="flex items-center justify-between gap-3 border-t border-gray-200 pt-3">
+            <span>Diferencia de efectivo</span>
+            <strong :class="cierreRealizado.diferencia < 0 ? 'text-red-600' : cierreRealizado.diferencia > 0 ? 'text-amber-700' : 'text-green-700'">
+              {{ cierreRealizado.diferencia > 0 ? '+' : '' }}{{ formatCurrency(cierreRealizado.diferencia) }}
+            </strong>
+          </div>
+        </div>
+        <div class="flex flex-wrap justify-end gap-3 border-t border-gray-100 pt-4">
+          <!-- Preparado para otro desarrollador: SIN acción, impresión ni descarga. -->
+          <BaseButton type="button" variant="secondary" disabled>
+            <PrinterIcon class="h-4 w-4" /> Generar ticket
+          </BaseButton>
+          <BaseButton type="button" @click="cierreRealizadoOpen = false">Listo</BaseButton>
+        </div>
+      </div>
+    </BaseModal>
+
+    <DetalleCorteModal
+      :open="detalleCorteOpen"
+      :corte="detalleCorte"
+      @close="detalleCorteOpen = false"
+    />
   </section>
 </template>

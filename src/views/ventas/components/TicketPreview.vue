@@ -101,7 +101,7 @@ onBeforeUnmount(() => {
           :key="`${item.producto}-${item.variante}-${index}`"
         >
           <div class="flex justify-between gap-4">
-            <span class="font-medium"> {{ item.producto }} - {{ item.variante }} </span>
+            <span class="font-medium"> {{ item.producto }}{{ item.variante ? ` - ${item.variante}` : '' }} </span>
             <span>{{ item.cantidad }}</span>
           </div>
           <p class="mt-1 text-right text-xs text-gray-500">

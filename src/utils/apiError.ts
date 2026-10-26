@@ -101,6 +101,7 @@ function getValidationMessage(body: ApiErrorBody): string | null {
   return null
 }
 
+
 export function getFriendlyError(
   error: unknown,
   fallback = 'No fue posible completar la operación. Intenta nuevamente.',
@@ -110,18 +111,38 @@ export function getFriendlyError(
   }
 
   const body = error.response?.data
-
-  if (body?.message) return body.message
-  if (body?.mensaje) return body.mensaje
-  if (body?.detail) return body.detail
-
-  if (body) {
-    const validationMessage = getValidationMessage(body)
-    if (validationMessage) return validationMessage
-  }
+  const status = error.response?.status
 
   if (!error.response) {
-    return 'No fue posible completar la operación. Intenta nuevamente.'
+    return 'No fue posible conectar con el servidor. Verifica tu conexión e intenta nuevamente.'
+  }
+
+  const message = body?.message || body?.mensaje || body?.detail
+
+  const genericMessages = new Set([
+    'la solicitud no es válida.',
+    'no se pudo registrar el artículo.',
+    'no se pudo registrar la variante.',
+    'no se pudo modificar la variante.',
+    'validation error.',
+  ])
+
+  const isValidationError = status === 400 || status === 422
+
+  if (
+    body &&
+    isValidationError &&
+    (!message || genericMessages.has(message.trim().toLowerCase()))
+  ) {
+    const validationMessage = getValidationMessage(body)
+
+    if (validationMessage) {
+      return validationMessage
+    }
+  }
+
+  if (message) {
+    return message
   }
 
   return fallback

@@ -48,7 +48,7 @@ const emit = defineEmits<{
               {{ item.variante.producto }}
             </p>
             <p class="mt-1 truncate text-sm text-gray-500">
-              {{ item.variante.variante }} · {{ item.variante.sku }}
+              {{ [item.variante.variante, item.variante.sku].filter(Boolean).join(' · ') }}
             </p>
             <p class="mt-2 text-sm font-semibold text-[#C56B86]">
               {{ formatCurrency(item.variante.precioMenudeo) }}
