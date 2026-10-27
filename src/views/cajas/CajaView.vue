@@ -21,6 +21,7 @@ import BasePagination from '@/components/ui/BasePagination.vue'
 import BaseDateRangeFilter from '@/components/ui/BaseDateRangeFilter.vue'
 import BaseModal from '@/components/ui/BaseModal.vue'
 import DetalleCorteModal from '@/components/cajas/DetalleCorteModal.vue'
+import CorteTicketModal from '@/components/cajas/CorteTicketModal.vue'
 import StatusChip from '@/components/common/StatusChip.vue'
 
 import {
@@ -55,6 +56,7 @@ const cortesActivos = ref<Record<string, CorteCaja>>({})
 const historial = ref<CorteCaja[]>([])
 const detalleCorte = ref<CorteCaja | null>(null)
 const detalleCorteOpen = ref(false)
+const ticketCorteId = ref<string | null>(null)
 const detalleCorteLoading = ref(false)
 const {
   dateFrom: historyDateFrom,
@@ -75,7 +77,7 @@ const loading = ref(false)
 const saving = ref(false)
 const modalOpen = ref(false)
 const cierreRealizadoOpen = ref(false)
-const cierreRealizado = ref<{ caja: string; efectivoContado: number; diferencia: number } | null>(null)
+const cierreRealizado = ref<{ corteId: string; caja: string; efectivoContado: number; diferencia: number } | null>(null)
 const modalMode = ref<ModalMode>('crear')
 const resumenCierre = ref<CorteCaja | null>(null)
 const cargandoResumenCierre = ref(false)
@@ -289,9 +291,9 @@ async function submitModal() {
         efectivo_final: efectivoContadoValido.value!,
       })
 
-      // Mostrar el botón de ticket únicamente tras el POST de cierre exitoso.
-      // El botón es visual: no imprime, descarga ni solicita datos adicionales.
+      // El id real del cierre sirve para consultar (GET) e imprimir el ticket, sin otro POST.
       cierreRealizado.value = {
+        corteId: response.data.corteId,
         caja: selectedCaja.value.nombre,
         efectivoContado: response.data.efectivoContado,
         diferencia: response.data.diferencia,
@@ -639,8 +641,12 @@ onMounted(loadData)
           </div>
         </div>
         <div class="flex flex-wrap justify-end gap-3 border-t border-gray-100 pt-4">
-          <!-- Preparado para otro desarrollador: SIN acción, impresión ni descarga. -->
-          <BaseButton type="button" variant="secondary" disabled>
+          <BaseButton
+            type="button"
+            variant="secondary"
+            :disabled="!cierreRealizado.corteId"
+            @click="ticketCorteId = cierreRealizado.corteId"
+          >
             <PrinterIcon class="h-4 w-4" /> Generar ticket
           </BaseButton>
           <BaseButton type="button" @click="cierreRealizadoOpen = false">Listo</BaseButton>
@@ -652,6 +658,8 @@ onMounted(loadData)
       :open="detalleCorteOpen"
       :corte="detalleCorte"
       @close="detalleCorteOpen = false"
+      @print="ticketCorteId = $event"
     />
+    <CorteTicketModal :corte-id="ticketCorteId" @close="ticketCorteId = null" />
   </section>
 </template>

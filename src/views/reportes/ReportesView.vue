@@ -9,6 +9,7 @@ import BaseLoader from '@/components/ui/BaseLoader.vue'
 import BasePagination from '@/components/ui/BasePagination.vue'
 import BaseSelect from '@/components/ui/BaseSelect.vue'
 import DetalleCorteModal from '@/components/cajas/DetalleCorteModal.vue'
+import CorteTicketModal from '@/components/cajas/CorteTicketModal.vue'
 
 import { getReporte, getReportePage } from '@/api/reportes'
 import { getCortePorId } from '@/api/cajas'
@@ -48,6 +49,7 @@ const exporting = ref(false)
 const detalleOpen = ref(false)
 const detalleLoading = ref(false)
 const detalleCorte = ref<CorteCaja | null>(null)
+const ticketCorteId = ref<string | null>(null)
 const generated = ref(false)
 const page = ref(1)
 const totalPages = ref(1)
@@ -78,6 +80,7 @@ const reportUsesDates = computed(
 )
 
 watch(reportType, () => {
+  ticketCorteId.value = null
   detalleOpen.value = false
   detalleCorte.value = null
   rows.value = []
@@ -333,7 +336,9 @@ async function verCorte(row: ReporteFila) {
       :open="detalleOpen"
       :corte="detalleCorte"
       @close="detalleOpen = false"
+      @print="ticketCorteId = $event"
     />
+    <CorteTicketModal :corte-id="ticketCorteId" @close="ticketCorteId = null" />
 
     <div v-if="generated && totalPages > 1" class="mt-4">
       <BasePagination :page="page" :total-pages="totalPages" @change="goToPage" />

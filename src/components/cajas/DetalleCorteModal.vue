@@ -13,6 +13,7 @@ defineProps<{
 
 const emit = defineEmits<{
   close: []
+  print: [id: string]
 }>()
 </script>
 
@@ -74,8 +75,11 @@ const emit = defineEmits<{
       </div>
 
       <div class="flex justify-end border-t border-gray-100 pt-4">
-        <!-- Reservado para la implementación futura. No genera ni solicita tickets. -->
-        <BaseButton variant="secondary" disabled title="Disponible próximamente">
+        <BaseButton
+          variant="secondary"
+          :disabled="!corte.fechaFin || corte.efectivoFinal === null || corte.diferencia === null"
+          @click="emit('print', corte.id)"
+        >
           <PrinterIcon class="h-4 w-4" /> Generar ticket
         </BaseButton>
       </div>
