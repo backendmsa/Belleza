@@ -159,3 +159,32 @@ export async function editarArticulo(
   const resultado = unwrapData<EdicionApi>(data)
   return { cambiado: true, advertencias: resultado.advertencias_precios ?? [] }
 }
+
+/** Vista previa: todas las variantes de un mismo Producto, incluso inactivas. */
+export interface GrupoVariantePrecio {
+  id: string
+  nombre: string
+  precio_menudeo: string
+  activo: boolean
+}
+
+export async function consultarVariantesDelProducto(productoId: string): Promise<GrupoVariantePrecio[]> {
+  const { data } = await api.get<{ success: boolean; data: GrupoVariantePrecio[] }>(
+    '/variantes/precio-masivo/',
+    { params: { producto_id: productoId } },
+  )
+  return data.data
+}
+
+/** Cambio atómico y confirmado: solo precio_menudeo de IDs expresamente elegidos. */
+export async function actualizarPrecioMasivo(ids: string[], precio: number): Promise<{ actualizadas: number; modificadas: number }> {
+  const { data } = await api.post<{
+    success: boolean
+    data: { actualizadas: number; modificadas: number }
+  }>('/variantes/precio-masivo/', {
+    ids,
+    precio_menudeo: precio.toFixed(2),
+    confirmado: true,
+  })
+  return data.data
+}

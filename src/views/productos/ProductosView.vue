@@ -12,6 +12,7 @@ import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import StatusChip from '@/components/common/StatusChip.vue'
 
 import ArticuloForm from './components/ArticuloForm.vue'
+import PrecioMasivoModal from './components/PrecioMasivoModal.vue'
 
 import { getCategorias } from '@/api/categorias'
 import { editarArticulo, getArticulosPage, registrarArticulo } from '@/api/articulos'
@@ -39,6 +40,9 @@ const modalOpen = ref(false)
 const seleccionado = ref<Articulo | null>(null)
 const confirmOpen = ref(false)
 const paraCambiarEstado = ref<Articulo | null>(null)
+const precioMasivoOpen = ref(false)
+const articuloPrecioMasivo = ref<Articulo | null>(null)
+const precioNuevoMasivo = ref(0)
 
 const page = ref(1)
 const totalPages = ref(1)
@@ -144,6 +148,26 @@ async function guardarArticulo(valores: ArticuloFormValues) {
   } finally {
     saving.value = false
   }
+}
+
+function iniciarPrecioMasivo(precio: number) {
+  if (!seleccionado.value || saving.value) return
+  articuloPrecioMasivo.value = seleccionado.value
+  precioNuevoMasivo.value = precio
+  modalOpen.value = false
+  precioMasivoOpen.value = true
+}
+
+function cerrarPrecioMasivo() {
+  precioMasivoOpen.value = false
+  articuloPrecioMasivo.value = null
+  seleccionado.value = null
+}
+
+async function precioMasivoGuardado(cantidad: number) {
+  cerrarPrecioMasivo()
+  await loadData()
+  await showSuccess(`Precio actualizado para ${cantidad} variante(s).`)
 }
 
 function solicitarCambioEstado(articulo: Articulo) {
@@ -326,9 +350,18 @@ onMounted(() => {
         :categorias="categorias"
         :saving="saving"
         @submit="guardarArticulo"
+        @bulk-price="iniciarPrecioMasivo"
         @cancel="cerrarModal"
       />
     </BaseModal>
+
+    <PrecioMasivoModal
+      :open="precioMasivoOpen"
+      :articulo="articuloPrecioMasivo"
+      :precio="precioNuevoMasivo"
+      @close="cerrarPrecioMasivo"
+      @saved="precioMasivoGuardado"
+    />
 
     <ConfirmDialog
       :open="confirmOpen"

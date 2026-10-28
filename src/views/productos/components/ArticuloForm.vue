@@ -23,6 +23,7 @@ const props = withDefaults(defineProps<Props>(), {
 
 const emit = defineEmits<{
   submit: [values: ArticuloFormValues]
+  bulkPrice: [precio: number]
   cancel: []
 }>()
 
@@ -238,6 +239,18 @@ onBeforeUnmount(() => {
   stopScanner()
 })
 
+function solicitarPrecioMasivo() {
+  if (!props.articulo || props.saving) return
+  formError.value = ''
+  if (!monedaValida(form.precioVenta, false) || ventaNumero.value <= 0) {
+    formError.value = 'Escribe un precio de venta mayor a cero (máximo dos decimales).'
+    return
+  }
+  detenerDictado()
+  stopScanner()
+  emit('bulkPrice', ventaNumero.value)
+}
+
 function submitForm() {
   if (props.saving) return
   formError.value = ''
@@ -379,6 +392,9 @@ function submitForm() {
 
     <div class="flex flex-wrap justify-end gap-3 border-t border-gray-100 pt-5">
       <BaseButton type="button" variant="secondary" :disabled="saving" @click="cancelar">Cancelar</BaseButton>
+      <BaseButton v-if="articulo" type="button" variant="secondary" class="w-full sm:w-auto" :disabled="saving" @click="solicitarPrecioMasivo">
+        Aplicar a todas las variantes
+      </BaseButton>
       <BaseButton type="submit" :loading="saving" :disabled="saving">{{ articulo ? 'Guardar cambios' : 'Guardar artículo' }}</BaseButton>
     </div>
   </form>
